@@ -299,3 +299,5 @@ button.sm{padding:6px 12px;min-width:0;font-size:.85rem}
 .circ{margin:8px 0;padding:8px 12px;border-radius:12px;border:1px solid var(--line)}.circ.ok{border-color:#3d7a4d;background:rgba(61,122,77,.14)}.circ.mid{border-color:var(--gold);background:rgba(255,200,80,.08)}.circ.bad{border-color:#a84a3d;background:rgba(168,74,61,.14)}
 .slres .ms{display:grid;grid-template-columns:96px 1fr 28px;gap:8px;align-items:center;font-size:.85rem}.slres .ms b{text-align:right}
 .slbars{display:flex;gap:6px;align-items:flex-end;height:70px}.slb{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px}.slb i{width:100%;border-radius:6px 6px 2px 2px;background:#4a4a58;min-height:4px}.slb i.ok{background:#4caf6a}.slb small{color:var(--mut);font-size:.65rem}
+
+.pill.md.mov{color:#c9a0ff;border-color:#7a58aa}

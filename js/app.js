@@ -184,6 +184,16 @@
     }
     return out;
   }
+  function posBlock(e) {
+    if (e.positions && e.positions.length) {
+      return '<p class="lbl">Posiciones</p><ul class="plain">' + e.positions.map(function (p) { return '<li>' + esc(p.name) + ' · <b>' + p.sec + ' s</b></li>'; }).join('') + '</ul>' +
+        '<p class="meta">Mantén una tensión intensa pero tolerable, sin dolor ni rebotes; respira lento. Haz el estiramiento al final de la sesión o en días de descanso.</p>';
+    }
+    if ((e.goals || []).indexOf('hipertrofia') >= 0) {
+      return '<p class="lbl">Para ganar masa muscular</p><p class="meta">Series cerca del fallo técnico (deja 1–3 repeticiones en reserva), bajada controlada de 2–4 s y rango completo. Reparte el trabajo de cada músculo en 2 o más días por semana.</p>';
+    }
+    return '';
+  }
   function openInfo(id) {
     var e = TW.getEx(S, id), mus = (e.muscles || []).filter(function (m) { return m !== 'cuerpo_completo'; });
     var prim = mus[0] ? TW.MUSCLES[mus[0]] : null, sec = mus.slice(1).map(function (m) { return TW.MUSCLES[m]; });
@@ -203,7 +213,7 @@
       '<div class="chips2"><span class="pill md ' + mode.k + '">' + mode.t + '</span><span class="pill">Nivel ' + (e.diff || 1) + '/3</span>' + (eq || '') + '</div>' +
       '<p class="lbl">Qué trabaja</p><p>' + (prim ? '<b>' + prim + '</b>' : 'Todo el cuerpo') + (sec.length ? ' <span class="meta">· también: ' + sec.join(', ') + '</span>' : '') + '</p>' +
       (svg ? '<div class="big small">' + bsvg(e.muscles, 'big') + '</div>' : '') +
-      loadBlock(e) +
+      loadBlock(e) + posBlock(e) +
       '<p class="lbl">Cómo hacerlo</p>' + (steps || '<p>' + esc(TW.exHow(e)) + '</p>') +
       (steps ? '<p class="meta"><em>' + esc(TW.exHow(e)) + '</em></p>' : '') +
       '<p class="lbl">Calentamiento antes de este ejercicio</p><p>' + esc(TW.PATTERN_WARM[e.pattern] || 'Calienta 3–5 min antes.') + '</p>' +
@@ -1210,6 +1220,9 @@
         (loadable ? '<input name="load_' + k + '" placeholder="Ej: 2, 4, 6, 8" value="' + lv.join(', ') + '" aria-label="Cargas de ' + TW.EQUIPMENT[k] + ' en kg">' : '') + '</div>';
     }).join('');
     view.innerHTML = '<section class="page"><h2 class="title">Ajustes</h2>' +
+      '<div class="card"><h3>Actualización</h3><p class="meta">Versión instalada: <b id="verNow">…</b></p>' +
+      '<button class="wide" data-a="updateApp">Buscar y descargar actualización</button>' +
+      '<p class="meta">Descarga la versión más reciente desde GitHub y recarga la app. Tus registros no se borran.</p></div>' +
       '<div class="card"><h3>Mi perfil guardado</h3><p class="meta">Carga de una vez tu peso, estatura, 4 días, medidas y tu equipo (mancuernas, discos, barra, kettlebell, bandas y cuerda). No borra tu historial.</p><button class="ghost" data-a="applyMine">Cargar mis datos y equipo</button></div>' +
       '<div class="card"><h3>Perfil</h3><div class="grid2">' +
       '<label class="field">Peso (kg)<input type="number" step="0.1" name="weight" value="' + p.weight + '"></label>' +
@@ -1246,6 +1259,31 @@
       '<input type="file" id="importFile" accept="application/json,.json" hidden></div>' +
       '<div class="card info"><p class="meta">Aviso: esta app no ofrece recomendaciones médicas. Consulta a un profesional antes de iniciar o cambiar tu entrenamiento o alimentación.</p></div>' +
       '</section>';
+    installedVersion().then(function (v) { var el = $('#verNow'); if (el) el.textContent = v; });
+  }
+  /* ---------- Actualización manual desde GitHub Pages ---------- */
+  function installedVersion() {
+    if (!window.caches) return Promise.resolve('—');
+    return caches.keys().then(function (ks) { var k = ks.filter(function (x) { return x.indexOf('titan-workout-') === 0; })[0]; return k ? k.replace('titan-workout-', '') : '—'; }).catch(function () { return '—'; });
+  }
+  function updateApp() {
+    if (!navigator.onLine) { toast('Sin conexión: conéctate a internet e inténtalo de nuevo'); return; }
+    var btn = document.querySelector('[data-a="updateApp"]'); if (btn) { btn.disabled = true; btn.textContent = 'Buscando…'; }
+    var cur = '—', latest = '—', assets = ['./', './index.html', './styles.css'];
+    installedVersion().then(function (v) { cur = v; return fetch('sw.js?x=' + Date.now(), { cache: 'no-store' }); })
+      .then(function (r) { if (!r.ok) throw new Error('http'); return r.text(); })
+      .then(function (t) {
+        var m = /titan-workout-(v\d+)/.exec(t); latest = m ? m[1] : '—';
+        var list = t.match(/'\.\/[^']+'/g); if (list) assets = list.map(function (x) { return x.slice(1, -1); });
+        return Promise.all(assets.map(function (u) { return fetch(u, { cache: 'reload' }).catch(function () {}); }));
+      })
+      .then(function () { return window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }) : null; })
+      .then(function () { return navigator.serviceWorker ? navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); }) : null; })
+      .then(function () {
+        toast(cur === latest ? 'Ya tienes la versión ' + latest + '. Recargando…' : 'Actualizando ' + cur + ' → ' + latest + '…');
+        setTimeout(function () { location.replace(location.pathname + '?u=' + Date.now() + '#ajustes'); }, 1200);
+      })
+      .catch(function () { if (btn) { btn.disabled = false; btn.textContent = 'Buscar y descargar actualización'; } toast('No se pudo conectar con GitHub. Revisa tu internet.'); });
   }
   function saveProfile() {
     var v = collect(view);
@@ -1649,6 +1687,7 @@
     saveRanges: saveRanges,
     exportCsv: exportCsv,
     exportJson: exportJson,
+    updateApp: updateApp,
     importPick: function () { $('#importFile').click(); },
     resetAll: resetAll,
     closeSheet: closeSheet,
@@ -1687,7 +1726,7 @@
   load().then(function () {
     if ('serviceWorker' in navigator) {
       var had = !!navigator.serviceWorker.controller;
-      navigator.serviceWorker.register('sw.js').catch(function () {});
+      navigator.serviceWorker.register('sw.js').then(function (reg) { document.addEventListener('visibilitychange', function () { if (!document.hidden) reg.update().catch(function () {}); }); }).catch(function () {});
       navigator.serviceWorker.addEventListener('controllerchange', function () { if (had && !window.__twReload) { window.__twReload = 1; location.reload(); } });
     }
     window.addEventListener('hashchange', route);
