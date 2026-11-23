@@ -16,7 +16,10 @@
   TW.allEx = function (S) { return TW.CATALOG.concat(S.custom || []); };
   TW.getEx = function (S, id) { return TW.allEx(S).find(function (e) { return e.id === id; }); };
   TW.status = function (S, id) { return (S.status && S.status[id]) || 'disponible'; };
+  TW.IMPACT = ['saltar_cuerda', 'burpees', 'jumping_jacks', 'high_knees'];
+  TW.lowImpact = function (S) { return !S.profile || S.profile.lowImpact !== false; };
   TW.hasEquip = function (S, e) {
+    if (TW.lowImpact(S) && TW.IMPACT.indexOf(e.id) >= 0) return false;
     return (e.equip || []).every(function (q) { return S.equipment && S.equipment[q] && S.equipment[q].on; });
   };
 

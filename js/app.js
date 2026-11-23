@@ -165,10 +165,39 @@
       '<div class="grid2"><button class="wide" data-a="minUp"' + (mins >= 60 ? ' disabled' : '') + '>Sí, +5 min</button>' +
       '<button class="ghost" data-a="minKeep">No, mantener</button></div></article>';
   }
+  function photosHTML() {
+    var ph = S.photos || [], last = ph[ph.length - 1];
+    var days = last ? Math.floor((TW.parseYmd(today()) - TW.parseYmd(last.date)) / 86400000) : null;
+    var due = !last || days >= 28;
+    var msg = !last ? 'Aún no hay fotos. Toma la primera: de frente, misma luz y misma distancia.'
+      : due ? 'Han pasado ' + days + ' días: toca tu foto de progreso (cada 4 semanas).'
+      : 'Última foto hace ' + days + ' días. La próxima toca en ' + (28 - days) + ' días.';
+    var cmp = ph.length >= 2 ? '<div class="grid2"><figure><img class="preview" src="' + ph[0].data + '" alt="Primera foto"><figcaption class="meta">Inicio · ' + ph[0].date + '</figcaption></figure>' +
+      '<figure><img class="preview" src="' + last.data + '" alt="Última foto"><figcaption class="meta">Última · ' + last.date + '</figcaption></figure></div>' : (last ? '<img class="preview" src="' + last.data + '" alt="Foto">' : '');
+    return '<div class="card"><h3>Fotos de progreso</h3><p class="meta">' + msg + '</p>' + cmp +
+      '<label class="field">' + (due ? 'Tomar foto ahora' : 'Añadir foto') + '<input type="file" id="progPhoto" accept="image/*" capture="user"></label>' +
+      '<p class="meta">La app guarda y compara las fotos en tu teléfono; no las analiza. Para una valoración, sube la foto a Claude junto con tu peso y cintura de ese día.</p></div>';
+  }
+  function addProgPhoto(file) {
+    if (!file) return;
+    var img = new Image(), url = URL.createObjectURL(file);
+    img.onload = function () {
+      var w = 480, h = Math.round(img.height * w / img.width), c = document.createElement('canvas');
+      c.width = w; c.height = h; c.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      S.photos = (S.photos || []).concat([{ date: today(), data: c.toDataURL('image/jpeg', 0.7) }]);
+      save(); toast('Foto guardada'); renderProgress();
+    };
+    img.onerror = function () { toast('No se pudo leer la foto'); };
+    img.src = url;
+  }
+  function warmItems(list) {
+    return TW.lowImpact(S) ? list.filter(function (t) { return !/trote|salto/i.test(t); }) : list;
+  }
   function warmupHTML() {
     return '<article class="card"><h3>Calentamiento (5–10 min)</h3><div class="grid2">' +
-      '<div><p class="lbl">En casa</p>' + TW.WARMUP.casa.map(function (t) { return '<label class="check"><input type="checkbox"> ' + esc(t) + '</label>'; }).join('') + '</div>' +
-      '<div><p class="lbl">Espacio abierto</p>' + TW.WARMUP.abierto.map(function (t) { return '<label class="check"><input type="checkbox"> ' + esc(t) + '</label>'; }).join('') + '</div>' +
+      '<div><p class="lbl">En casa</p>' + warmItems(TW.WARMUP.casa).map(function (t) { return '<label class="check"><input type="checkbox"> ' + esc(t) + '</label>'; }).join('') + '</div>' +
+      '<div><p class="lbl">Espacio abierto</p>' + warmItems(TW.WARMUP.abierto).map(function (t) { return '<label class="check"><input type="checkbox"> ' + esc(t) + '</label>'; }).join('') + '</div>' +
       '</div></article>';
   }
   function startLoadsHTML() {
@@ -531,7 +560,7 @@
       '<label class="field">Cintura (cm, opcional)<input type="number" step="0.5" id="bodyWaist"></label></div>' +
       '<button class="ghost" data-a="saveBody">Registrar peso</button>' +
       '<p class="meta">Proteína objetivo: ' + Math.round(lw * pr[0]) + '–' + Math.round(lw * pr[1]) + ' g/día (' + pr[0] + '–' + pr[1] + ' g/kg)</p></div>' +
-      sleepHTML() +
+      photosHTML() + sleepHTML() +
       '<div class="card"><h3>Cumplimiento (4 semanas)</h3>' + comp.map(function (c) {
         return '<div class="ms"><span>Semana ' + c.start.slice(5) + ': ' + c.done + '/' + c.planned + ' días</span><div class="pbar small"><i style="width:' + c.pct + '%"></i></div></div>';
       }).join('') + '</div>' +
@@ -709,6 +738,7 @@
       '<label class="field">Objetivo prioritario<select name="goal">' + TW.ALL_GOALS.map(function (g) { return '<option value="' + g + '"' + (g === p.goal ? ' selected' : '') + '>' + TW.GOALS[g] + '</option>'; }).join('') + '</select></label>' +
       '<label class="field">Experiencia<select name="exp">' + Object.keys(TW.EXP).map(function (k) { return '<option value="' + k + '"' + ((p.exp || 'principiante') === k ? ' selected' : '') + '>' + TW.EXP[k].label + '</option>'; }).join('') + '</select></label>' +
       '<label class="field">Minutos por sesión<input type="number" min="10" max="90" step="5" name="minutes" value="' + (p.minutes || 20) + '"></label>' +
+      '<label class="field">Bajo impacto (sin saltos ni trote)<select name="lowImpact"><option value="si"' + (TW.lowImpact(S) ? ' selected' : '') + '>Sí</option><option value="no"' + (TW.lowImpact(S) ? '' : ' selected') + '>No</option></select></label>' +
       '<label class="field">Medida de brazo (cm)<input type="number" step="0.5" name="arm" value="' + (p.arm || 37) + '"></label>' +
       '</div><p class="meta">Empieza con 20 min y sube de forma gradual; la app te preguntará cada semana si subes.</p><button class="ghost" data-a="saveProfile">Guardar perfil</button></div>' +
       '<div class="card"><h3>Equipo</h3>' + equipScanHTML() + '<p class="meta">Marca lo que tienes y escribe las cargas disponibles. La app solo redondea a esos valores.</p>' +
@@ -738,7 +768,8 @@
       weight: v.weight, height: v.height, age: v.age, days: TW.clamp(Number(v.days) || 3, 3, 6),
       targetKg: v.targetKg || null, goal: v.goal, exp: TW.EXP[v.exp] ? v.exp : 'principiante',
       minutes: TW.clamp(Number(v.minutes) || 20, 10, 90),
-      arm: Number(v.arm) || null
+      arm: Number(v.arm) || null,
+      lowImpact: v.lowImpact !== 'no'
     });
     save(); toast('Perfil guardado'); renderSettings();
   }
@@ -1117,6 +1148,7 @@
   document.addEventListener('change', function (e) {
     var t = e.target;
     if (t.id === 'photo') handlePhoto(t.files[0]);
+    else if (t.id === 'progPhoto') addProgPhoto(t.files[0]);
     else if (t.id === 'equipPhoto') scanEquipPhoto(t.files[0]);
     else if (t.id === 'importFile') importFile(t.files[0]);
     else if (t.dataset.f === 'progSel') { progSel = t.value; renderProgress(); }
