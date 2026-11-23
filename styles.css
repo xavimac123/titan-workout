@@ -301,3 +301,15 @@ button.sm{padding:6px 12px;min-width:0;font-size:.85rem}
 .slbars{display:flex;gap:6px;align-items:flex-end;height:70px}.slb{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px}.slb i{width:100%;border-radius:6px 6px 2px 2px;background:#4a4a58;min-height:4px}.slb i.ok{background:#4caf6a}.slb small{color:var(--mut);font-size:.65rem}
 
 .pill.md.mov{color:#c9a0ff;border-color:#7a58aa}
+
+/* Mi cuerpo */
+.b3row{display:grid;grid-template-columns:1fr 1fr;gap:8px;touch-action:pan-y;user-select:none}.b3row figure{margin:0;text-align:center}
+canvas.b3{width:100%;height:300px;display:block;background:radial-gradient(ellipse at 50% 90%,#24242c,#141418);border-radius:14px}
+.b3row figcaption{color:var(--mut);font-size:.78rem;margin-top:4px}
+.b3leg{display:flex;gap:14px;flex-wrap:wrap;margin:8px 0;font-size:.8rem;color:var(--mut)}.b3leg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}.b3leg .r{background:#c62828}.b3leg .y{background:#ffd614}
+.b3ctl{display:flex;gap:6px;flex-wrap:wrap}
+.b3big{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}.b3big div{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:8px 6px;text-align:center}.b3big small{display:block;color:var(--mut);font-size:.7rem}.b3big b{font-family:var(--cond);font-size:1.1rem;color:var(--gold)}.b3big b small{display:inline;font-size:.65rem;color:var(--mut)}
+.b3t{width:100%;border-collapse:collapse;font-size:.85rem;margin:6px 0}.b3t th,.b3t td{padding:6px 4px;text-align:right;border-bottom:1px solid var(--line)}.b3t th:first-child{text-align:left;font-weight:500;color:var(--mut)}.b3t thead th{color:var(--mut);font-size:.72rem;text-transform:uppercase}
+.b3t .dg{color:#7be08f;font-weight:600}.b3t .db{color:#ff8a7a;font-weight:600}.b3t .dz{color:var(--mut)}
+.b3ph{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}.b3ph figure{margin:0}.b3ph img{width:100%;border-radius:12px;display:block;max-height:220px;object-fit:cover}.b3ph figcaption{color:var(--mut);font-size:.72rem;text-align:center;margin-top:3px}
+.meta a,.bodycard a{color:var(--gold)}

@@ -108,6 +108,41 @@
       parts: parts.map(function (p) { return { k: p[0], v: p[1] == null ? null : Math.round(p[1]) }; }),
       series: win.map(function (e) { return { date: e.date, durMin: durOf(e) }; }) };
   };
+
+  /* Composición corporal estimada (hombre). Dos métodos independientes y su promedio:
+     · Marina de EE. UU.: 86,010·log10(cintura−cuello) − 70,041·log10(estatura) + 36,76, con medidas en pulgadas.
+     · Deurenberg 1991: 1,20·IMC + 0,23·edad − 10,8 − 5,4 (sexo masculino = 1).
+     Son estimaciones (error típico ≈ 4 puntos); un % ingresado a mano desde una foto o báscula la reemplaza. */
+  var cl = function (x, a, b) { return Math.max(a, Math.min(b, x)); };
+  TW.bodyFat = function (p, e) {
+    var h = Number(p.height), age = Number(p.age) || 34, kg = Number(e.kg), w = Number(e.waist), n = Number(e.neck), out = { navy: null, dm: null };
+    if (h > 0 && w > n && n > 0) out.navy = 86.010 * Math.log10((w - n) / 2.54) - 70.041 * Math.log10(h / 2.54) + 36.76;
+    if (h > 0 && kg > 0) out.dm = 1.20 * (kg / Math.pow(h / 100, 2)) + 0.23 * age - 10.8 - 5.4;
+    var v = [out.navy, out.dm].filter(function (x) { return x != null && isFinite(x); }).map(function (x) { return cl(x, 4, 60); });
+    if (e.bf > 0) { out.pct = cl(Number(e.bf), 4, 60); out.lo = out.hi = out.pct; out.manual = true; }
+    else if (v.length) { out.pct = v.reduce(function (s, x) { return s + x; }, 0) / v.length; out.lo = Math.min.apply(null, v); out.hi = Math.max.apply(null, v); }
+    else { out.pct = null; out.lo = out.hi = null; }
+    if (out.pct != null && kg > 0) { out.fatKg = kg * out.pct / 100; out.leanKg = kg - out.fatKg; }
+    return out;
+  };
+  /* Modelo corporal de una fecha: completa medidas que faltan con la última registrada antes (o el perfil). */
+  TW.bodyModel = function (S, entry) {
+    var p = S.profile || {}, list = (S.body || []).slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    var m = { date: entry.date, kg: entry.kg, waist: entry.waist, neck: entry.neck, arm: entry.arm, bf: entry.bf, h: p.height, age: p.age };
+    ['waist', 'neck', 'arm', 'bf'].forEach(function (k) {
+      if (m[k] > 0) return;
+      for (var i = list.length - 1; i >= 0; i--) if (list[i].date <= entry.date && list[i][k] > 0 && (k !== 'bf' || list[i].date === entry.date)) { m[k] = list[i][k]; return; }
+      if (k !== 'bf') m[k] = p[k] || null;
+    });
+    m.fat = TW.bodyFat({ height: m.h, age: m.age }, m);
+    m.bmi = m.kg > 0 && m.h > 0 ? m.kg / Math.pow(m.h / 100, 2) : null;
+    return m;
+  };
+  TW.bodyPair = function (S) {
+    var p = S.profile || {}, list = (S.body || []).slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    if (!list.length) list = [{ date: TW.ymd(new Date()), kg: p.weight, waist: p.waist }];
+    return { before: TW.bodyModel(S, list[0]), after: TW.bodyModel(S, list[list.length - 1]), n: list.length };
+  };
   /* Carga inicial orientativa: posición dentro de las cargas disponibles según experiencia.
      No usa 1RM (no lo conocemos); se ajusta con la doble progresión tras 1–2 sesiones. */
   TW.EXP = { principiante: { label: 'Principiante', frac: 0.3 }, retomando: { label: 'He entrenado y retomo', frac: 0.5 }, experto: { label: 'Experto', frac: 0.7 } };

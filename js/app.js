@@ -314,7 +314,7 @@
     };
   }
   function load() {
-    return TW.db.get('state').then(function (saved) { S = Object.assign(defaults(), saved || {}); regEquip(); });
+    return TW.db.get('state').then(function (saved) { S = Object.assign(defaults(), saved || {}); if (S.profile && !S.ageSet) { S.profile.age = 34; S.ageSet = true; save(); } regEquip(); });
   }
   function save() { return TW.db.set('state', S); }
 
@@ -485,6 +485,76 @@
     R();
   }
 
+  /* ---------- Mi cuerpo (figura 3D, antes y después) ---------- */
+  var b3 = { raf: 0, angle: 0, hold: 0 };
+  function fmt1(x) { return x == null || !isFinite(x) ? '—' : String(Math.round(x * 10) / 10).replace('.', ','); }
+  function delta(a, c, unit, goodDown) {
+    if (a == null || c == null || !isFinite(a) || !isFinite(c)) return '<td>—</td>';
+    var d = Math.round((c - a) * 10) / 10;
+    if (d === 0) return '<td class="dz">0</td>';
+    var good = goodDown ? d < 0 : d > 0;
+    return '<td class="' + (good ? 'dg' : 'db') + '">' + (d > 0 ? '+' : '') + fmt1(d) + unit + '</td>';
+  }
+  function bodyCardHTML() {
+    var pr = TW.bodyPair(S), A = pr.before, B = pr.after, p = S.profile, ph = S.photos || [];
+    var row = function (lbl, x, y, unit, down) {
+      return '<tr><th>' + lbl + '</th><td>' + fmt1(x) + '</td><td>' + fmt1(y) + '</td>' + (down === undefined ? '<td></td>' : delta(x, y, unit, down)) + '</tr>';
+    };
+    var fa = A.fat, fb = B.fat;
+    var pctTxt = function (f) { return f.pct == null ? '—' : fmt1(f.pct) + ' %'; };
+    var rng = fb.pct != null && !fb.manual ? '≈ ' + fmt1(fb.pct) + ' % <small>(rango ' + fmt1(fb.lo) + '–' + fmt1(fb.hi) + ')</small>' : (fb.pct != null ? fmt1(fb.pct) + ' % <small>(ingresado)</small>' : '—');
+    var photos = ph.length >= 2 ? '<div class="b3ph"><figure><img src="' + ph[0].data + '" alt="Foto inicial"><figcaption>Foto inicial · ' + ph[0].date.slice(5) + '</figcaption></figure><figure><img src="' + ph[ph.length - 1].data + '" alt="Última foto"><figcaption>Última foto · ' + ph[ph.length - 1].date.slice(5) + '</figcaption></figure></div>' : '';
+    return '<article class="card bodycard"><h3>Mi cuerpo</h3>' +
+      '<div class="b3row"><figure><canvas class="b3" data-m="before"></canvas><figcaption>Inicio · ' + A.date.slice(5) + '</figcaption></figure>' +
+      '<figure><canvas class="b3" data-m="after"></canvas><figcaption>Hoy · ' + B.date.slice(5) + '</figcaption></figure></div>' +
+      '<div class="b3leg"><span><i class="r"></i> Músculo</span><span><i class="y"></i> Grasa visible (estimada)</span></div>' +
+      '<div class="b3ctl"><button class="ghost sm" data-a="b3view" data-v="0">Frente</button><button class="ghost sm" data-a="b3view" data-v="1">Perfil</button><button class="ghost sm" data-a="b3view" data-v="2">Espalda</button><button class="ghost sm" data-a="b3view" data-v="r">Girar</button></div>' +
+      '<p class="meta">Arrastra la figura para girarla.</p>' +
+      '<div class="b3big"><div><small>Grasa corporal</small><b>' + rng + '</b></div><div><small>Masa magra</small><b>' + (fb.leanKg != null ? fmt1(fb.leanKg) + ' kg' : '—') + '</b></div><div><small>Masa grasa</small><b>' + (fb.fatKg != null ? fmt1(fb.fatKg) + ' kg' : '—') + '</b></div></div>' +
+      '<table class="b3t"><thead><tr><th></th><th>Inicio</th><th>Hoy</th><th>Cambio</th></tr></thead><tbody>' +
+      row('Estatura (cm)', B.h, B.h) + row('Edad (años)', A.age, B.age) +
+      row('Peso (kg)', A.kg, B.kg, ' kg', true) + row('Cintura (cm)', A.waist, B.waist, ' cm', true) + row('Cuello (cm)', A.neck, B.neck, ' cm') + row('Brazo (cm)', A.arm, B.arm, ' cm') +
+      '<tr><th>Grasa (%)</th><td>' + pctTxt(fa) + '</td><td>' + pctTxt(fb) + '</td>' + delta(fa.pct, fb.pct, ' pts', true) + '</tr>' +
+      '<tr><th>Masa magra (kg)</th><td>' + fmt1(fa.leanKg) + '</td><td>' + fmt1(fb.leanKg) + '</td>' + delta(fa.leanKg, fb.leanKg, ' kg', false) + '</tr>' +
+      '</tbody></table>' +
+      (pr.n < 2 ? '<p class="note">Registra de nuevo tu peso y tu cintura en Progreso para ver el cambio entre el antes y el después.</p>' : '') +
+      photos +
+      '<div class="grid2"><label class="field">% de grasa que ves en tus fotos<input type="number" step="0.5" id="bfInput" placeholder="Ej. 33"></label><button class="ghost" data-a="saveBf">Actualizar figura</button></div>' +
+      '<p class="meta"><em>Estimación a partir de tus medidas (método de la Marina de EE. UU. y fórmula de Deurenberg, con error típico de unos 4 puntos). La app no analiza tus fotos: si al compararlas ves otro porcentaje, ingrésalo y la figura lo usará. Para cambiar tus medidas ve a <a href="#progreso">Progreso</a>.</em></p>' +
+      '<details class="srcbox"><summary>Fuentes</summary><ul class="plain">' +
+      '<li><a href="https://pubmed.ncbi.nlm.nih.gov/2043597" target="_blank" rel="noopener">Deurenberg et al. 1991: IMC y grasa corporal por edad y sexo</a></li>' +
+      '<li><a href="https://apps.dtic.mil/sti/pdfs/ADA370158.pdf" target="_blank" rel="noopener">Hodgdon y Friedl 1999: ecuaciones de composición corporal del Departamento de Defensa de EE. UU.</a></li>' +
+      '<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10282178" target="_blank" rel="noopener">Limitaciones de las medidas con cinta para detectar cambios (Frontiers in Physiology 2023)</a></li></ul></details></article>';
+  }
+  function initBody3d() {
+    cancelAnimationFrame(b3.raf);
+    var cs = Array.prototype.slice.call(document.querySelectorAll('canvas.b3'));
+    if (!cs.length) return;
+    var pr = TW.bodyPair(S), rs = cs.map(function (c) { return TW.body3d(c, c.dataset.m === 'before' ? pr.before : pr.after); });
+    var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches, last = 0, auto = !reduce;
+    var paint = function () { rs.forEach(function (r) { r.draw(b3.angle); }); };
+    b3.angle = 0.5; paint();
+    var row = document.querySelector('.b3row'), x0 = null;
+    row.addEventListener('pointerdown', function (e) { x0 = e.clientX; b3.hold = Date.now() + 5000; row.setPointerCapture && row.setPointerCapture(e.pointerId); });
+    row.addEventListener('pointermove', function (e) { if (x0 == null) return; b3.angle += (e.clientX - x0) * 0.014; x0 = e.clientX; b3.hold = Date.now() + 5000; paint(); });
+    row.addEventListener('pointerup', function () { x0 = null; });
+    row.addEventListener('pointercancel', function () { x0 = null; });
+    b3.set = function (v) { b3.hold = Date.now() + 6000; if (v === 'r') { auto = !auto; b3.hold = 0; return; } auto = false; b3.angle = [0, PI / 2, PI][Number(v)]; paint(); };
+    var PI = Math.PI;
+    (function loop(t) {
+      if (!document.body.contains(cs[0])) return;
+      if (auto && !document.hidden && Date.now() > b3.hold && t - last > 40) { b3.angle += 0.012; last = t; paint(); }
+      b3.raf = requestAnimationFrame(loop);
+    })(0);
+  }
+  function saveBf() {
+    var v = Number($('#bfInput').value);
+    if (!(v >= 4 && v <= 60)) { toast('Ingresa un porcentaje entre 4 y 60'); return; }
+    var d = today(), pr = TW.bodyPair(S), cur = S.body.filter(function (b) { return b.date === d; })[0];
+    if (!cur) { cur = { date: d, kg: pr.after.kg, waist: pr.after.waist }; S.body.push(cur); }
+    cur.bf = v; save(); renderHome(); toast('Figura actualizada con ' + v + ' % de grasa');
+  }
+
   /* ---------- INICIO (dashboard) ---------- */
   function renderHome() {
     var p = S.profile, ti = todayIdx(), dates = weekDates(0), prev = weekDates(-1);
@@ -519,8 +589,9 @@
       '<p class="meta">Objetivo: ' + esc(TW.GOALS[p.goal] || '') + ' · ' + (p.days || 4) + ' días/semana · ' + (p.minutes || 20) + ' min por sesión</p></article>' +
       '<article class="card"><h3>Tiempo entrenado</h3><div class="wkgrid">' + cols + '</div>' +
       '<p class="meta"><b>' + total + ' min</b> esta semana' + (planTot ? ' · plan ' + planTot + (xTot ? ' · <b class="xt2">+' + xTot + ' min extra</b>' : '') : '') + (last ? ' · semana pasada ' + last + ' min (' + (diff >= 0 ? '+' : '') + diff + ')' : '') + '</p></article>' +
-      sleepCardHTML() + muscleChartHTML() + quoteHTML() +
+      bodyCardHTML() + sleepCardHTML() + muscleChartHTML() + quoteHTML() +
       '<div class="row"><a class="ghost linkbtn" href="#ruta">Ver ruta</a><a class="ghost linkbtn" href="#semana">Editar semana</a></div></section>';
+    initBody3d();
   }
 
   /* ---------- Tarjeta de sueño (Inicio) ---------- */
@@ -1046,8 +1117,11 @@
         { pts: ma.map(function (m) { return { x: m.date, y: m.v }; }), cls: 'avg' }], 'Peso corporal') +
       '<p class="meta">Línea dorada: promedio móvil de los últimos 7 registros.</p>' +
       '<div class="grid2"><label class="field">Peso (kg)<input type="number" step="0.1" id="bodyKg" value="' + lw + '"></label>' +
-      '<label class="field">Cintura (cm, opcional)<input type="number" step="0.5" id="bodyWaist"></label></div>' +
-      '<button class="ghost" data-a="saveBody">Registrar peso</button>' +
+      '<label class="field">Cintura (cm, a la altura del ombligo)<input type="number" step="0.5" id="bodyWaist"></label>' +
+      '<label class="field">Cuello (cm, opcional)<input type="number" step="0.5" id="bodyNeck"></label>' +
+      '<label class="field">Brazo (cm, opcional)<input type="number" step="0.5" id="bodyArm"></label>' +
+      '<label class="field">% de grasa según foto o báscula (opcional)<input type="number" step="0.5" id="bodyBf"></label></div>' +
+      '<button class="ghost" data-a="saveBody">Registrar medidas</button>' +
       '<p class="meta">Proteína objetivo: ' + Math.round(lw * pr[0]) + '–' + Math.round(lw * pr[1]) + ' g/día (' + pr[0] + '–' + pr[1] + ' g/kg)</p></div>' +
       photosHTML() + sleepHTML() +
       '<div class="card"><h3>Cumplimiento (4 semanas)</h3>' + comp.map(function (c) {
@@ -1096,10 +1170,12 @@
   }
   function saveBody() {
     var kg = Number($('#bodyKg').value), waist = Number($('#bodyWaist').value) || null;
+    var neck = Number($('#bodyNeck').value) || null, arm = Number($('#bodyArm').value) || null, bf = Number($('#bodyBf').value) || null;
     if (!(kg > 0)) { toast('Ingresa un peso válido'); return; }
-    var d = today();
+    var d = today(), e = { date: d, kg: kg, waist: waist };
+    if (neck) e.neck = neck; if (arm) e.arm = arm; if (bf) e.bf = bf;
     S.body = S.body.filter(function (b) { return b.date !== d; });
-    S.body.push({ date: d, kg: kg, waist: waist });
+    S.body.push(e);
     save(); renderProgress(); toast('Peso registrado');
   }
   function saveTest() {
@@ -1688,6 +1764,8 @@
     exportCsv: exportCsv,
     exportJson: exportJson,
     updateApp: updateApp,
+    saveBf: saveBf,
+    b3view: function (el, d) { if (b3.set) b3.set(d.v); },
     importPick: function () { $('#importFile').click(); },
     resetAll: resetAll,
     closeSheet: closeSheet,
