@@ -55,6 +55,18 @@
     }, 0) / ids.length;
     return avg < 1.5 ? 1 : avg < 2.75 ? 2 : 3;
   };
+  /* Sueño: duración y regularidad de la hora de dormir (últimos 7 registros). Estimación, no diagnóstico. */
+  var toMin = function (hhmm) { var p = String(hhmm).split(':'); return Number(p[0]) * 60 + Number(p[1]); };
+  TW.sleepStats = function (entries) {
+    var recent = (entries || []).slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; }).slice(-7);
+    if (!recent.length) return null;
+    var durs = recent.map(function (e) { return ((toMin(e.wake) - toMin(e.bed)) + 1440) % 1440; });
+    var beds = recent.map(function (e) { var m = toMin(e.bed); return m < 720 ? m + 1440 : m; });
+    var avg = durs.reduce(function (s, x) { return s + x; }, 0) / durs.length;
+    var mean = beds.reduce(function (s, x) { return s + x; }, 0) / beds.length;
+    var sd = Math.sqrt(beds.reduce(function (s, x) { return s + Math.pow(x - mean, 2); }, 0) / beds.length);
+    return { nights: recent.length, avgH: Math.round(avg / 6) / 10, lastH: Math.round(durs[durs.length - 1] / 6) / 10, bedSdMin: Math.round(sd) };
+  };
   /* Carga inicial orientativa: posición dentro de las cargas disponibles según experiencia.
      No usa 1RM (no lo conocemos); se ajusta con la doble progresión tras 1–2 sesiones. */
   TW.EXP = { principiante: { label: 'Principiante', frac: 0.3 }, retomando: { label: 'He entrenado y retomo', frac: 0.5 }, experto: { label: 'Experto', frac: 0.7 } };

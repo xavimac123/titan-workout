@@ -13,7 +13,8 @@ TW.PATTERNS = {
 TW.EQUIPMENT = {
   mancuernas: 'Mancuernas', barra: 'Barra', discos: 'Discos', barra_dominadas: 'Barra de dominadas',
   banda_rosa: 'Banda HAWK rosa 66×8 cm (más firme)', banda_turquesa: 'Banda HAWK turquesa 72×8 cm (ligera)',
-  cuerda_saltar: 'Cuerda de saltar', bicicleta: 'Bicicleta estática', kettlebell: 'Kettlebell', banco: 'Banco'
+  cuerda_saltar: 'Cuerda de saltar', bicicleta: 'Bicicleta estática', kettlebell: 'Kettlebell', banco: 'Banco',
+  gimnasio: 'Gimnasio (actívalo cuando tengas acceso)'
 };
 /* Resistencia de cada banda: no viene impresa en la caja; se completa al probarlas (ligera / media / fuerte). */
 TW.BANDS_NOTE = 'Resistencia según tu prueba: la turquesa es ligera y la rosa más firme. La caja no indica la carga en kg.';

@@ -509,11 +509,41 @@
       '<label class="field">Cintura (cm, opcional)<input type="number" step="0.5" id="bodyWaist"></label></div>' +
       '<button class="ghost" data-a="saveBody">Registrar peso</button>' +
       '<p class="meta">Proteína objetivo: ' + Math.round(lw * pr[0]) + '–' + Math.round(lw * pr[1]) + ' g/día (' + pr[0] + '–' + pr[1] + ' g/kg)</p></div>' +
+      sleepHTML() +
       '<div class="card"><h3>Cumplimiento (4 semanas)</h3>' + comp.map(function (c) {
         return '<div class="ms"><span>Semana ' + c.start.slice(5) + ': ' + c.done + '/' + c.planned + ' días</span><div class="pbar small"><i style="width:' + c.pct + '%"></i></div></div>';
       }).join('') + '</div>' +
       '<div class="card"><h3>Prueba de flexibilidad</h3><div class="grid2"><label class="field">Sit-and-reach (cm)<input type="number" step="0.5" id="testVal"></label></div>' +
       '<button class="ghost" data-a="saveTest">Guardar prueba</button></div></section>';
+  }
+  function sleepHTML() {
+    var st = TW.sleepStats(S.sleep || []);
+    var info = '';
+    if (st) {
+      info = '<p class="meta">Últimos ' + st.nights + ' registros: promedio ' + st.avgH + ' h; última noche ' + st.lastH + ' h; hora de dormir varía ±' + st.bedSdMin + ' min.</p>' +
+        (st.avgH < 7 ? '<p class="note">La AASM recomienda 7 horas o más de forma regular.</p>' : '') +
+        (st.bedSdMin > 30 ? '<p class="note">Tu hora de dormir cambia mucho. Criterio práctico: intentar ±30 min.</p>' : '');
+    }
+    return '<div class="card"><h3>Sueño y ritmo</h3>' +
+      '<div class="grid2"><label class="field">Hora de dormir<input type="time" id="sleepBed"></label>' +
+      '<label class="field">Hora de despertar<input type="time" id="sleepWake"></label>' +
+      '<label class="field">Cómo dormiste<select id="sleepQ"><option value="3">Regular</option><option value="1">Mal</option><option value="5">Bien</option></select></label></div>' +
+      '<button class="ghost" data-a="saveSleep">Registrar sueño</button>' + info +
+      '<p class="lbl">Buenas prácticas</p><ul class="plain">' +
+      '<li>Mantén la misma hora de despertar, incluso los fines de semana.</li>' +
+      '<li>Expón los ojos a luz natural en la mañana y evita pantallas y cafeína las horas previas a dormir.</li>' +
+      '<li>Ajusta la hora de dormir 15–30 min por semana hasta llegar a 7 h o más.</li>' +
+      '</ul>' +
+      '<p class="lbl">Cuándo consultar a un médico</p><p class="meta">Con sueño corto y cansancio diurno, conviene revisar apnea del sueño. Consulta si roncas fuerte, notas pausas en la respiración mientras duermes o tienes somnolencia que afecta tu día. Como referencia, el cuestionario STOP-BANG marca alto riesgo desde 3 puntos, y uno de sus ítems es el cansancio diurno.</p>' +
+      '</div>';
+  }
+  function saveSleep() {
+    var bed = $('#sleepBed').value, wake = $('#sleepWake').value, q = Number($('#sleepQ').value);
+    if (!bed || !wake) { toast('Ingresa hora de dormir y de despertar'); return; }
+    var d = today();
+    S.sleep = (S.sleep || []).filter(function (x) { return x.date !== d; });
+    S.sleep.push({ date: d, bed: bed, wake: wake, q: q });
+    save(); renderProgress(); toast('Sueño registrado');
   }
   function saveBody() {
     var kg = Number($('#bodyKg').value), waist = Number($('#bodyWaist').value) || null;
@@ -647,7 +677,8 @@
       '<label class="field">Peso objetivo (kg)<input type="number" step="0.1" name="targetKg" value="' + (p.targetKg || '') + '"></label>' +
       '<label class="field">Objetivo prioritario<select name="goal">' + TW.ALL_GOALS.map(function (g) { return '<option value="' + g + '"' + (g === p.goal ? ' selected' : '') + '>' + TW.GOALS[g] + '</option>'; }).join('') + '</select></label>' +
       '<label class="field">Experiencia<select name="exp">' + Object.keys(TW.EXP).map(function (k) { return '<option value="' + k + '"' + ((p.exp || 'principiante') === k ? ' selected' : '') + '>' + TW.EXP[k].label + '</option>'; }).join('') + '</select></label>' +
-      '</div><button class="ghost" data-a="saveProfile">Guardar perfil</button></div>' +
+      '<label class="field">Minutos por sesión<input type="number" min="10" max="90" step="5" name="minutes" value="' + (p.minutes || 20) + '"></label>' +
+      '</div><p class="meta">Empieza con 20 min y sube de forma gradual; la app te preguntará cada semana si subes.</p><button class="ghost" data-a="saveProfile">Guardar perfil</button></div>' +
       '<div class="card"><h3>Equipo</h3>' + equipScanHTML() + '<p class="meta">Marca lo que tienes y escribe las cargas disponibles. La app solo redondea a esos valores.</p>' +
       eq + startLoadsHTML() + '<p class="meta">' + TW.BANDS_NOTE + '</p><ul class="plain">' + Object.keys(TW.BAND_ZONES).map(function (k) { return '<li>' + esc(TW.EQUIPMENT[k]) + ': ' + esc(TW.BAND_ZONES[k]) + '</li>'; }).join('') + '</ul><button class="ghost" data-a="saveEquip">Guardar equipo</button></div>' +
       '<div class="card"><h3>Nivel</h3><p class="meta">Nivel actual: ' + ['', 'Principiante', 'Intermedio', 'Avanzado'][TW.level(S)] + '</p><div class="grid2">' +
@@ -670,7 +701,8 @@
     var v = collect(view);
     S.profile = Object.assign({}, S.profile, {
       weight: v.weight, height: v.height, age: v.age, days: TW.clamp(Number(v.days) || 3, 3, 6),
-      targetKg: v.targetKg || null, goal: v.goal, exp: TW.EXP[v.exp] ? v.exp : 'principiante'
+      targetKg: v.targetKg || null, goal: v.goal, exp: TW.EXP[v.exp] ? v.exp : 'principiante',
+      minutes: TW.clamp(Number(v.minutes) || 20, 10, 90)
     });
     save(); toast('Perfil guardado'); renderSettings();
   }
@@ -1011,6 +1043,7 @@
     editPhase: function (el, d) { openPhaseForm(d.id); },
     savePhase: function (el, d) { savePhase(d.id); },
     saveBody: saveBody,
+    saveSleep: saveSleep,
     saveTest: saveTest,
     setStatus: function (el, d) { setStatus(d.ex, d.st); },
     detail: function (el, d) { openDetail(d.ex); },
