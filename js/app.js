@@ -23,7 +23,7 @@
     };
   }
   function load() {
-    return TW.db.get('state').then(function (saved) { S = Object.assign(defaults(), saved || {}); });
+    return TW.db.get('state').then(function (saved) { S = Object.assign(defaults(), saved || {}); regEquip(); });
   }
   function save() { return TW.db.set('state', S); }
 
@@ -65,6 +65,42 @@
     var l = S.logs.find(function (x) { return x.date === date && x.ex === exId; });
     if (!l && create) { l = { date: date, ex: exId, sets: [], clean: false }; S.logs.push(l); }
     return l;
+  }
+  function regEquip() {
+    (S.customEquip || []).forEach(function (c) { TW.EQUIPMENT[c.id] = c.name; });
+  }
+  function mineEquip() {
+    var eq = Object.assign({}, S.equipment);
+    Object.keys(TW.EQUIPMENT).forEach(function (k) {
+      if (TW.MY.equip.indexOf(k) >= 0) eq[k] = { on: true, loads: [] };
+      else if (!eq[k]) eq[k] = { on: false, loads: [] };
+    });
+    return eq;
+  }
+  function applyMine() {
+    if (!confirm('Cargar tu peso, estatura, 4 días, medidas y tu equipo guardado?')) return;
+    var had = S.profile && S.profile.days;
+    S.profile = Object.assign({}, S.profile, TW.MY.profile);
+    S.equipment = mineEquip();
+    if (!S.body.length) S.body.push({ date: today(), kg: TW.MY.profile.weight, waist: TW.MY.profile.waist });
+    if (had !== TW.MY.profile.days) {
+      var w = TW.proposeWeek(S); w.forEach(function (d) { d.exs.forEach(activate); }); S.week = w;
+    }
+    save(); toast('Perfil y equipo cargados'); renderSettings();
+  }
+  function addEquip() {
+    var inp = $('#newEquip'), name = inp ? inp.value.trim() : '';
+    if (!name) { toast('Escribe el nombre del equipo'); return; }
+    if (W) S.equipment = readEquip(view); else if (view.querySelector('input[data-group="equip"]')) S.equipment = readEquip(view);
+    var id = 'x_' + name.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 24);
+    if (TW.EQUIPMENT[id]) { toast('Ese equipo ya existe'); return; }
+    S.customEquip = (S.customEquip || []).concat([{ id: id, name: name }]);
+    TW.EQUIPMENT[id] = name; S.equipment[id] = { on: true, loads: [] };
+    save(); toast('Equipo agregado');
+    if (W) renderWizard(); else renderSettings();
+  }
+  function newEquipHTML() {
+    return '<div class="eqrow"><input id="newEquip" maxlength="40" placeholder="Equipo nuevo (ej: Banco, Barra de dominadas)" aria-label="Nombre del equipo nuevo"><button class="ghost" data-a="addEquip">Agregar</button></div>';
   }
   function activate(id) {
     if (TW.status(S, id) !== 'activo') S.status[id] = 'activo';
@@ -729,6 +765,7 @@
         (loadable ? '<input name="load_' + k + '" placeholder="Ej: 2, 4, 6, 8" value="' + lv.join(', ') + '" aria-label="Cargas de ' + TW.EQUIPMENT[k] + ' en kg">' : '') + '</div>';
     }).join('');
     view.innerHTML = '<section class="page"><h2 class="title">Ajustes</h2>' +
+      '<div class="card"><h3>Mi perfil guardado</h3><p class="meta">Carga de una vez tu peso, estatura, 4 días, medidas y tu equipo (mancuernas, discos, barra, kettlebell, bandas y cuerda). No borra tu historial.</p><button class="ghost" data-a="applyMine">Cargar mis datos y equipo</button></div>' +
       '<div class="card"><h3>Perfil</h3><div class="grid2">' +
       '<label class="field">Peso (kg)<input type="number" step="0.1" name="weight" value="' + p.weight + '"></label>' +
       '<label class="field">Estatura (cm)<input type="number" name="height" value="' + p.height + '"></label>' +
@@ -739,10 +776,11 @@
       '<label class="field">Experiencia<select name="exp">' + Object.keys(TW.EXP).map(function (k) { return '<option value="' + k + '"' + ((p.exp || 'principiante') === k ? ' selected' : '') + '>' + TW.EXP[k].label + '</option>'; }).join('') + '</select></label>' +
       '<label class="field">Minutos por sesión<input type="number" min="10" max="90" step="5" name="minutes" value="' + (p.minutes || 20) + '"></label>' +
       '<label class="field">Bajo impacto (sin saltos ni trote)<select name="lowImpact"><option value="si"' + (TW.lowImpact(S) ? ' selected' : '') + '>Sí</option><option value="no"' + (TW.lowImpact(S) ? '' : ' selected') + '>No</option></select></label>' +
+      '<label class="field">Cuello (cm)<input type="number" step="0.5" name="neck" value="' + (p.neck || '') + '"></label>' +
       '<label class="field">Medida de brazo (cm)<input type="number" step="0.5" name="arm" value="' + (p.arm || 37) + '"></label>' +
       '</div><p class="meta">Empieza con 20 min y sube de forma gradual; la app te preguntará cada semana si subes.</p><button class="ghost" data-a="saveProfile">Guardar perfil</button></div>' +
       '<div class="card"><h3>Equipo</h3>' + equipScanHTML() + '<p class="meta">Marca lo que tienes y escribe las cargas disponibles. La app solo redondea a esos valores.</p>' +
-      eq + startLoadsHTML() + '<p class="meta">' + TW.BANDS_NOTE + '</p><ul class="plain">' + Object.keys(TW.BAND_ZONES).map(function (k) { return '<li>' + esc(TW.EQUIPMENT[k]) + ': ' + esc(TW.BAND_ZONES[k]) + '</li>'; }).join('') + '</ul><button class="ghost" data-a="saveEquip">Guardar equipo</button></div>' +
+      eq + newEquipHTML() + startLoadsHTML() + '<p class="meta">' + TW.BANDS_NOTE + '</p><ul class="plain">' + Object.keys(TW.BAND_ZONES).map(function (k) { return '<li>' + esc(TW.EQUIPMENT[k]) + ': ' + esc(TW.BAND_ZONES[k]) + '</li>'; }).join('') + '</ul><button class="ghost" data-a="saveEquip">Guardar equipo</button></div>' +
       '<div class="card"><h3>Nivel</h3><p class="meta">Nivel actual: ' + ['', 'Principiante', 'Intermedio', 'Avanzado'][TW.level(S)] + '</p><div class="grid2">' +
       Object.keys(TW.ASSESS).map(function (k) {
         return '<label class="field">' + TW.ASSESS[k] + '<input type="number" min="0" name="as_' + k + '" value="' + (a[k] || 0) + '"></label>';
@@ -768,7 +806,7 @@
       weight: v.weight, height: v.height, age: v.age, days: TW.clamp(Number(v.days) || 3, 3, 6),
       targetKg: v.targetKg || null, goal: v.goal, exp: TW.EXP[v.exp] ? v.exp : 'principiante',
       minutes: TW.clamp(Number(v.minutes) || 20, 10, 90),
-      arm: Number(v.arm) || null,
+      arm: Number(v.arm) || null, neck: Number(v.neck) || null,
       lowImpact: v.lowImpact !== 'no'
     });
     save(); toast('Perfil guardado'); renderSettings();
@@ -848,7 +886,7 @@
       try {
         var data = JSON.parse(r.result);
         if (!data || typeof data !== 'object' || !('logs' in data)) throw new Error('formato');
-        S = Object.assign(defaults(), data);
+        S = Object.assign(defaults(), data); regEquip();
         save().then(function () { toast('Respaldo importado'); route(); });
       } catch (err) { toast('El archivo no es un respaldo válido'); }
     };
@@ -866,21 +904,24 @@
     if (!W) W = { step: 1, week: null, photo: null, analysis: null };
     var s = W.step, body = '';
     if (s === 1) {
-      body = '<label class="field">Peso actual (kg)<input type="number" step="0.1" name="weight" required></label>' +
-        '<div class="grid2"><label class="field">Estatura (cm)<input type="number" name="height" required></label>' +
+      var pf = W.mine ? TW.MY.profile : {};
+      body = '<button class="ghost" data-a="wizMine">Usar mi perfil guardado</button>' +
+        '<label class="field">Peso actual (kg)<input type="number" step="0.1" name="weight" value="' + (pf.weight || '') + '" required></label>' +
+        '<div class="grid2"><label class="field">Estatura (cm)<input type="number" name="height" value="' + (pf.height || '') + '" required></label>' +
         '<label class="field">Edad<input type="number" name="age" min="10" max="99" required></label></div>' +
-        '<div class="grid2"><label class="field">Días de entrenamiento<select name="days">' + [3, 4, 5, 6].map(function (d) { return '<option value="' + d + '">' + d + '</option>'; }).join('') + '</select></label>' +
-        '<label class="field">Peso objetivo (kg)<input type="number" step="0.1" name="targetKg"></label></div>' +
-        '<label class="field">Objetivo prioritario de la fase inicial<select name="goal">' + TW.ALL_GOALS.map(function (g) { return '<option value="' + g + '">' + TW.GOALS[g] + '</option>'; }).join('') + '</select></label>' +
+        '<div class="grid2"><label class="field">Días de entrenamiento<select name="days">' + [3, 4, 5, 6].map(function (d) { return '<option value="' + d + '"' + (d === pf.days ? ' selected' : '') + '>' + d + '</option>'; }).join('') + '</select></label>' +
+        '<label class="field">Peso objetivo (kg)<input type="number" step="0.1" name="targetKg" value="' + (pf.targetKg || '') + '"></label></div>' +
+        '<label class="field">Objetivo prioritario de la fase inicial<select name="goal">' + TW.ALL_GOALS.map(function (g) { return '<option value="' + g + '"' + (g === pf.goal ? ' selected' : '') + '>' + TW.GOALS[g] + '</option>'; }).join('') + '</select></label>' +
         '<label class="check"><input type="checkbox" name="notice"> Entiendo que esta app no ofrece recomendaciones médicas.</label>';
     } else if (s === 2) {
+      var srcEq = W.mine ? mineEquip() : S.equipment;
       body = equipScanHTML() + '<p class="meta">Marca lo que tienes. Para los que llevan peso, escribe las cargas disponibles (kg).</p>' +
         Object.keys(TW.EQUIPMENT).map(function (k) {
-          var x = S.equipment[k] || { on: false, loads: [] }, loadable = TW.LOADABLE.indexOf(k) >= 0;
+          var x = srcEq[k] || { on: false, loads: [] }, loadable = TW.LOADABLE.indexOf(k) >= 0;
           var lv = (x.loads && x.loads.length) ? x.loads : (TW.PRESET_LOADS[k] || []);
           return '<div class="eqrow"><label class="check"><input type="checkbox" data-group="equip" value="' + k + '"' + (x.on ? ' checked' : '') + '> ' + TW.EQUIPMENT[k] + '</label>' +
             (loadable ? '<input name="load_' + k + '" placeholder="Ej: 2, 4, 6, 8" value="' + lv.join(', ') + '">' : '') + '</div>';
-        }).join('');
+        }).join('') + newEquipHTML();
     } else if (s === 3) {
       body = '<p class="meta">Anota tus repeticiones limpias actuales. Con esto la app elige el escalón de inicio. Si no puedes hacer ninguna, pon 0.</p>' +
         '<div class="grid2">' + Object.keys(TW.ASSESS).map(function (k) {
@@ -938,7 +979,11 @@
       if (!v.notice) { toast('Confirma el aviso para continuar'); return; }
       S.profile = { weight: v.weight, height: v.height, age: v.age, days: TW.clamp(Number(v.days) || 3, 3, 6),
         goal: v.goal, targetKg: v.targetKg || null, bodyType: 'mixto', waist: null };
-      if (!S.body.length) S.body.push({ date: today(), kg: v.weight, waist: null });
+      if (W.mine) {
+        var m = TW.MY.profile;
+        Object.assign(S.profile, { exp: m.exp, minutes: m.minutes, arm: m.arm, neck: m.neck, waist: m.waist, lowImpact: m.lowImpact });
+      }
+      if (!S.body.length) S.body.push({ date: today(), kg: v.weight, waist: W.mine ? TW.MY.profile.waist : null });
       S.notice = true;
       save(); W.step = 2;
     } else if (s === 2) {
@@ -1114,6 +1159,9 @@
     savePhase: function (el, d) { savePhase(d.id); },
     saveBody: saveBody,
     saveSleep: saveSleep,
+    applyMine: applyMine,
+    addEquip: addEquip,
+    wizMine: function () { W.mine = true; renderWizard(); },
     stopBang: stopBang,
     saveTest: saveTest,
     setStatus: function (el, d) { setStatus(d.ex, d.st); },
