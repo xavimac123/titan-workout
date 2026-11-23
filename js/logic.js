@@ -228,6 +228,37 @@
   };
 
   /* Propuesta semanal: solo ejercicios activables (equipo + nivel), repartidos por patrón. */
+  /* Minutos estimados de un ejercicio (series × (40 s de trabajo + descanso)). */
+  TW.estMin = function (e) {
+    if (e.type === 'cardio') return e.minutes || 10;
+    if (e.type === 'flex') return Math.max(1, Math.round((e.positions || []).reduce(function (a, p) { return a + p.sec; }, 0) / 60));
+    return Math.max(1, Math.round((e.sets || 3) * (40 + (e.rest || 60)) / 60));
+  };
+  /* Ejercicios extra recomendados si sobra tiempo: mismos grupos del día, equipo disponible, sin impacto. */
+  TW.extras = function (S, exs, remaining) {
+    var level = TW.level(S), goal = S.profile.goal, inDay = new Set(exs.map(function (e) { return e.id; }));
+    var skip = ['cuerpo_completo', 'cardio', 'movilidad'];
+    var groups = new Set();
+    exs.forEach(function (e) { e.muscles.forEach(function (m) { if (skip.indexOf(m) < 0) groups.add(m); }); });
+    var out = [], left = remaining;
+    TW.allEx(S).filter(function (e) {
+      return e.type === 'fuerza' && !inDay.has(e.id) && TW.hasEquip(S, e) && e.diff <= level &&
+        ['disponible', 'activo'].indexOf(TW.status(S, e.id)) >= 0 && e.muscles.some(function (m) { return groups.has(m); });
+    }).sort(function (a, b) {
+      var sc = function (e) { return (e.goals.indexOf(goal) >= 0 ? 2 : 0) + (groups.has(e.muscles[0]) ? 3 : 0) + (e.pattern === 'aislamiento' || e.pattern === 'core' ? 0 : 1); };
+      return sc(b) - sc(a);
+    }).forEach(function (e) {
+      var m = TW.estMin(e);
+      if (out.length < 3 && m <= left) { out.push(e); left -= m; }
+    });
+    if (left >= 10 && (goal === 'definicion' || goal === 'resistencia')) {
+      var cardio = TW.allEx(S).filter(function (e) {
+        return e.type === 'cardio' && !inDay.has(e.id) && TW.hasEquip(S, e) && ['disponible', 'activo'].indexOf(TW.status(S, e.id)) >= 0;
+      })[0];
+      if (cardio && !exs.some(function (e) { return e.type === 'cardio'; })) out.push(cardio);
+    }
+    return out;
+  };
   TW.proposeWeek = function (S) {
     var n = TW.clamp(Number(S.profile.days) || 3, 3, 6);
     var slots = { 3: [0, 2, 4], 4: [0, 1, 3, 4], 5: [0, 1, 2, 4, 5], 6: [0, 1, 2, 3, 4, 5] }[n];
@@ -245,25 +276,41 @@
       return pool.filter(function (e) { return filterFn(e) && !used.has(e.id); })
         .sort(function (a, b) { return score(b) - score(a); })[0];
     };
-    var PLAN = [['empuje', 'core'], ['tiron', 'bisagra', 'aislamiento'], ['sentadilla', 'zancada', 'core']];
+    /* Cada patrón grande se entrena 2 veces por semana (3 y 4 días); lo grande va primero. */
+    var PLANS = {
+      3: [['sentadilla', 'empuje', 'tiron', 'core'], ['bisagra', 'tiron', 'empuje', 'core'], ['zancada', 'empuje', 'tiron', 'core']],
+      4: [['empuje', 'tiron', 'aisl_sup', 'core'], ['sentadilla', 'bisagra', 'core'], ['tiron', 'empuje', 'aisl_sup', 'core'], ['zancada', 'bisagra', 'aisl_inf']],
+      5: [['empuje', 'tiron', 'aisl_sup'], ['sentadilla', 'bisagra', 'core'], ['tiron', 'empuje', 'core'], ['zancada', 'bisagra', 'aisl_inf'], ['empuje', 'tiron', 'sentadilla', 'core']],
+      6: [['empuje', 'tiron', 'aisl_sup'], ['sentadilla', 'bisagra', 'core'], ['tiron', 'empuje', 'core'], ['zancada', 'bisagra', 'aisl_inf'], ['empuje', 'tiron', 'aisl_sup'], ['sentadilla', 'bisagra', 'core']]
+    };
+    var PLAN = PLANS[n];
+    var budget = Number(S.profile.minutes) || 20;
     var week = [0, 1, 2, 3, 4, 5, 6].map(function () { return { exs: [] }; });
-    var lastIdx = slots[slots.length - 1];
+    var lastIdx = slots[slots.length - 1], weekUsed = new Set();
 
     slots.forEach(function (dayIdx, i) {
-      var used = new Set(), picks = [];
-      PLAN[i % 3].forEach(function (p) {
-        var e = pick(function (x) {
-          return x.type === 'fuerza' && (p === 'aislamiento' ? x.pattern === 'aislamiento' : (Array.isArray(p) ? p : [p]).indexOf(x.pattern) >= 0);
-        }, used);
-        if (e) { used.add(e.id); picks.push(e.id); }
+      var used = new Set(), picks = [], spent = 0;
+      var add = function (e) { used.add(e.id); weekUsed.add(e.id); picks.push(e.id); spent += TW.estMin(e); };
+      PLAN[i].forEach(function (p) {
+        var UP = ['pecho', 'espalda', 'hombros', 'biceps', 'triceps'], LOW = ['gluteos', 'cuadriceps', 'isquiotibiales', 'pantorrillas'];
+        var fits = function (x) {
+          if (p === 'aisl_sup') return x.pattern === 'aislamiento' && x.muscles.every(function (m) { return UP.indexOf(m) >= 0; });
+          if (p === 'aisl_inf') return x.pattern === 'aislamiento' && x.muscles.every(function (m) { return LOW.indexOf(m) >= 0; });
+          return x.pattern === p;
+        };
+        var cand = pool.filter(function (x) { return x.type === 'fuerza' && fits(x) && !used.has(x.id); })
+          .sort(function (a, b) { return (score(b) - (weekUsed.has(b.id) ? 2.5 : 0)) - (score(a) - (weekUsed.has(a.id) ? 2.5 : 0)); })[0];
+        if (!cand) return;
+        if (picks.length >= 2 && spent + TW.estMin(cand) > budget + 2) return;
+        add(cand);
       });
-      if ((goal === 'resistencia' || goal === 'definicion') && i % 2 === 1) {
+      if ((goal === 'resistencia' || goal === 'definicion') && i % 2 === 1 && spent + 8 <= budget + 2) {
         var c = pick(function (x) { return x.type === 'cardio'; }, used);
-        if (c) { used.add(c.id); picks.push(c.id); }
+        if (c) add(c);
       }
       if (goal === 'flexibilidad' || dayIdx === lastIdx) {
         var f = pick(function (x) { return x.type === 'flex'; }, used);
-        if (f) { used.add(f.id); picks.push(f.id); }
+        if (f) add(f);
       }
       week[dayIdx].exs = picks;
     });

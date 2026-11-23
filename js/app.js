@@ -41,19 +41,44 @@
     curNum = 0;
     return out;
   }
+  function extrasHTML(info) {
+    var plan = info.exs.reduce(function (a, e) { return a + TW.estMin(e); }, 0);
+    var rem = (S.profile.minutes || 20) - plan;
+    if (rem < 4) return '';
+    var list = TW.extras(S, info.exs, rem);
+    return '<article class="card"><h3>Si te da el tiempo <small>+' + rem + ' min libres</small></h3>' +
+      '<p class="meta">Opcional. Suma una serie más a tus ejercicios principales o añade uno de estos del mismo grupo muscular:</p>' +
+      list.map(function (e) {
+        return '<div class="extra"><div><b>' + esc(TW.exName(e)) + '</b><small class="es">' + esc(muscleNames(e)) + ' · ~' + TW.estMin(e) + ' min</small></div>' +
+          '<button class="ghost" data-a="addExtra" data-ex="' + e.id + '">Añadir</button></div>';
+      }).join('') + '</article>';
+  }
+  function addExPhoto(file, id) {
+    if (!file) return;
+    var img = new Image(), url = URL.createObjectURL(file);
+    img.onload = function () {
+      var m = Math.min(1, 640 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+      c.width = Math.round(img.width * m); c.height = Math.round(img.height * m);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      S.exPhotos = S.exPhotos || {}; S.exPhotos[id] = c.toDataURL('image/jpeg', 0.75);
+      save(); openInfo(id);
+    };
+    img.src = url;
+  }
   function quoteHTML() {
     var Q = TW.QUOTES; if (!Q || !Q.length) return '';
-    if (quoteIdx == null) quoteIdx = Math.floor(Date.now() / 86400000) % Q.length;
-    var q = Q[quoteIdx % Q.length];
-    return '<article class="card quote"><p>“' + esc(q[0]) + '”</p><small>— ' + esc(q[1]) + '</small>' +
-      '<button class="ghost" data-a="quote">Otra frase</button></article>';
+    var i;
+    do { i = Math.floor(Math.random() * Q.length); } while (i === quoteIdx && Q.length > 1);
+    quoteIdx = i;
+    return '<article class="card quote"><p>“' + esc(Q[i][0]) + '”</p><small>— ' + esc(Q[i][1]) + '</small></article>';
   }
   function openInfo(id) {
     var e = TW.getEx(S, id), mus = (e.muscles || []).filter(function (m) { return m !== 'cuerpo_completo'; });
     var prim = mus[0] ? TW.MUSCLES[mus[0]] : null, sec = mus.slice(1).map(function (m) { return TW.MUSCLES[m]; });
     var eq = (e.equip || []).map(function (k) { return '<span class="pill">' + TW.equipIcon(k, 20) + ' ' + esc(String(TW.EQUIPMENT[k]).split(' (')[0]) + '</span>'; }).join(' ') || '<span class="pill">Sin equipo</span>';
     var inBlock = BLOCKS.filter(function (b) { return b.id === blockOf(e); })[0];
-    openSheet('<div class="big">' + bsvg(e.muscles, 'big') + '</div>' +
+    var ph = (S.exPhotos || {})[e.id];
+    openSheet((ph ? '<img class="preview" src="' + ph + '" alt="Mi foto del ejercicio">' : '') + '<div class="big">' + bsvg(e.muscles, 'big') + '</div>' +
       '<h3>' + exTitle(e) + '</h3>' +
       '<p class="lbl">Qué trabaja</p><p>' + (prim ? '<b>' + prim + '</b>' : 'Todo el cuerpo') + (sec.length ? ' <span class="meta">· también: ' + sec.join(', ') + '</span>' : '') + '</p>' +
       '<p class="lbl">Cómo hacerlo</p><p>' + esc(TW.exHow(e)) + '</p>' +
@@ -61,6 +86,8 @@
       '<p class="lbl">Equipo</p><p>' + eq + '</p>' +
       '<p class="lbl">Calentamiento antes de este ejercicio</p><p>' + esc(TW.PATTERN_WARM[e.pattern] || 'Calienta 3–5 min antes.') + '</p>' +
       '<p class="lbl">Dónde va en la sesión</p><p>' + (inBlock ? esc(inBlock.name) + ' · ' + esc(inBlock.hint) : '') + '. Dificultad ' + (e.diff || 1) + '/3.</p>' +
+      '<label class="field">' + (ph ? 'Cambiar mi foto o imagen' : 'Agregar mi foto o imagen del ejercicio') + '<input type="file" id="exPhoto" data-ex="' + e.id + '" accept="image/*"></label>' +
+      (ph ? '<button class="ghost" data-a="delExPhoto" data-ex="' + e.id + '">Quitar mi foto</button>' : '') +
       '<button class="wide ghost" data-a="closeSheet">Cerrar</button>');
   }
   function myEquipHTML() {
@@ -309,13 +336,13 @@
     }).join('');
     var body = info.exs.length
       ? ringHTML(pct) + '<p class="meta">' + done + '/' + total + ' series completadas' + (canLog ? '' : ' · solo puedes registrar el día de hoy') + '</p>' +
-        blocksHTML(info.exs, canLog) +
+        blocksHTML(info.exs, canLog) + extrasHTML(info) +
         '<button class="wide" data-a="finishDay" data-d="' + selDay + '"' + (canLog ? '' : ' disabled') + '>Terminar día</button>'
       : restDayHTML();
     view.innerHTML = '<section class="page"><nav class="dows">' + dows + '</nav>' +
       '<h2 class="title">' + esc(info.name) + '</h2>' +
       '<p class="sub">' + (info.groups.map(function (g) { return TW.MUSCLES[g]; }).join(' · ') || 'Sin entrenamiento programado') + '</p>' +
-      minCardHTML() + (info.exs.length ? warmupHTML() : '') + body + quoteHTML() + '</section>';
+      minCardHTML() + (info.exs.length ? warmupHTML() : '') + body + '</section>';
   }
   function minCardHTML() {
     var p = S.profile || {}, wk = TW.weekKey(today());
@@ -1284,12 +1311,13 @@
     saveBody: saveBody,
     saveSleep: saveSleep,
     info: function (el, d) { openInfo(d.ex); },
+    addExtra: function (el, d) { S.week[selDay].exs.push(d.ex); activate(d.ex); save(); renderToday(); toast('Ejercicio añadido a hoy'); },
+    delExPhoto: function (el, d) { if (S.exPhotos) delete S.exPhotos[d.ex]; save(); openInfo(d.ex); },
     startTraining: function () {
       var d = today(); S.sess = S.sess || {};
       if (!S.sess[d]) S.sess[d] = { s: Date.now(), e: Date.now() };
       save(); selDay = todayIdx(); location.hash = '#hoy';
     },
-    quote: function () { quoteIdx = (quoteIdx == null ? 0 : quoteIdx) + 1; renderToday(); },
     toggleEq: function (el, d) {
       var x = S.equipment[d.k] || { on: false, loads: [] }; x.on = !x.on; S.equipment[d.k] = x;
       save(); renderSettings();
@@ -1330,7 +1358,8 @@
   });
   document.addEventListener('change', function (e) {
     var t = e.target;
-    if (t.id === 'photo') handlePhoto(t.files[0]);
+    if (t.id === 'exPhoto') addExPhoto(t.files[0], t.dataset.ex);
+    else if (t.id === 'photo') handlePhoto(t.files[0]);
     else if (t.id === 'progPhoto') addProgPhoto(t.files[0]);
     else if (t.id === 'equipPhoto') scanEquipPhoto(t.files[0]);
     else if (t.id === 'importFile') importFile(t.files[0]);

@@ -201,3 +201,5 @@ a.linkbtn{flex:1;text-align:center;text-decoration:none;display:flex;align-items
 
 .tabs a{font-size:.8rem;letter-spacing:0;padding:0 2px}
 a.linkbtn{background:var(--card2);border:1px solid var(--line);font-weight:700}
+
+.extra{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}.extra small{display:block}.extra button{flex:none}
