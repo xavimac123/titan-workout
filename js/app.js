@@ -419,12 +419,22 @@
     Object.keys(S.sess || {}).concat((S.logs || []).map(function (l) { return l.date; }), Object.keys(S.extraMin || {}), Object.keys(S.acts || {})).forEach(function (d) { if (d.indexOf(pre) === 0) set[d] = 1; });
     return rangeKcal(Object.keys(set));
   }
+  var ACT_KMH = { caminata: 5, trote: 8, correr: 10 };
+  function actKm(a) { return a.km > 0 ? a.km : Math.round(ACT_KMH[a.t] * a.min / 60 * 10) / 10; }
+  function weekKm(dates) {
+    var k = 0;
+    dates.forEach(function (d) {
+      S.logs.forEach(function (l) { if (l.date === d && l.cardio) k += Number(l.cardio.km) || 0; });
+      ((S.acts || {})[d] || []).forEach(function (a) { k += actKm(a); });
+    });
+    return Math.round(k * 10) / 10;
+  }
   var actCtx = null;
   function actsCardHTML(canLog) {
     var date = weekDates(0)[selDay], list = (S.acts || {})[date] || [];
     return '<article class="card"><h3>Actividad adicional</h3>' +
       (list.length ? '<ul class="hist">' + list.map(function (a, i) {
-        return '<li><span>' + TW.ACT_TYPES[a.t] + '</span><span>' + a.min + ' min' + (a.km ? ' · ' + fmt1(a.km) + ' km' : '') + ' · ~' + Math.round(TW.kcal(TW.actMet(a.t, a.km, a.min), kgOn(date), a.min)) + ' kcal</span>' +
+        return '<li><span>' + TW.ACT_TYPES[a.t] + '</span><span>' + a.min + ' min' + ' · ' + (a.km ? '' : '≈') + fmt1(actKm(a)) + ' km' + ' · ~' + Math.round(TW.kcal(TW.actMet(a.t, a.km, a.min), kgOn(date), a.min)) + ' kcal</span>' +
           (canLog ? '<button class="xdel" data-a="actDel" data-i="' + i + '" aria-label="Quitar">✕</button>' : '') + '</li>';
       }).join('') + '</ul>' : '<p class="meta">¿Caminaste, trotaste o corriste hoy? Regístralo con su tiempo.</p>') +
       (canLog ? '<div class="grid3"><button class="ghost" data-a="actOpen" data-t="caminata">Caminata</button><button class="ghost" data-a="actOpen" data-t="trote">Trote</button><button class="ghost" data-a="actOpen" data-t="correr">Correr</button></div>' : '') + '</article>';
@@ -434,7 +444,7 @@
     openSheet('<h3>' + TW.ACT_TYPES[c.t] + '</h3>' +
       '<div class="chips">' + ['caminata', 'trote', 'correr'].map(function (t) { return '<button class="chip' + (t === c.t ? ' on' : '') + '" data-a="actType" data-t="' + t + '">' + TW.ACT_TYPES[t] + '</button>'; }).join('') + '</div>' +
       '<p class="lbl">Tiempo (min)</p><div class="stepper"><button data-a="actStep" data-f="min" data-d="-5">−</button><output>' + c.min + '</output><button data-a="actStep" data-f="min" data-d="5">+</button></div>' +
-      '<p class="lbl">Distancia (km, opcional)</p><div class="stepper"><button data-a="actStep" data-f="km" data-d="-0.5">−</button><output>' + (c.km ? fmt1(c.km) : '—') + '</output><button data-a="actStep" data-f="km" data-d="0.5">+</button></div>' +
+      '<p class="lbl">Distancia (km) · estimada si no la ingresas: ≈' + fmt1(Math.round(ACT_KMH[c.t] * c.min / 6) / 10) + ' km</p><div class="stepper"><button data-a="actStep" data-f="km" data-d="-0.5">−</button><output>' + (c.km ? fmt1(c.km) : '—') + '</output><button data-a="actStep" data-f="km" data-d="0.5">+</button></div>' +
       '<p class="meta">Gasto estimado: <b>~' + kc + ' kcal</b> (MET ' + met.toFixed(1) + ' con ' + fmt1(kg) + ' kg)' + (c.km > 0 ? ' · ' + fmt1(c.km / (c.min / 60)) + ' km/h' : '') + '. Estimación con error de ±20–30 %.</p>' +
       '<button class="wide" data-a="actSave">Guardar</button>');
   }
@@ -718,13 +728,15 @@
       '<p class="meta hoy">Hoy · ' + esc(info.name) + '</p>' +
       '<div class="chips2 hchips"><span class="pill">⏱ ' + fmtMin(dayMinutes(today())) + '</span><span class="pill">🔥 ~' + dayKcal(today()) + ' kcal</span></div></div>' +
       '<button class="wide" data-a="startTraining">' + cta + '</button></article>' +
+      weekSummaryHTML(days, total, planned, done) +
       '<article class="card"><h3>Peso</h3><div class="stats3">' +
       '<div><small>Inicial</small><b>' + start + '</b></div><div><small>Actual</small><b>' + cur + '</b></div><div><small>Meta</small><b>' + (tgt || '—') + '</b></div></div>' +
-      (tgt ? '<div class="pbar"><i style="width:' + pct + '%"></i></div><p class="meta">' + pct + '% del camino · ' + (cur > tgt ? 'faltan ' + (Math.round((cur - tgt) * 10) / 10) + ' kg' : 'meta alcanzada') + '</p>' : '<p class="meta">Define tu peso objetivo en Ajustes.</p>') +
-      '<p class="meta">Objetivo: ' + esc(TW.GOALS[p.goal] || '') + ' · ' + (p.days || 4) + ' días/semana · ' + (p.minutes || 20) + ' min por sesión</p></article>' +
-      '<article class="card"><h3>Tiempo de ejercicio</h3>' + timeTilesHTML(days, total) + '<div class="wkgrid">' + cols + '</div>' +
-      '<p class="meta"><b>' + total + ' min</b> esta semana' + (planTot ? ' · plan ' + planTot + (xTot ? ' · <b class="xt2">+' + xTot + ' min extra</b>' : '') : '') + (last ? ' · semana pasada ' + last + ' min (' + (diff >= 0 ? '+' : '') + diff + ')' : '') + '</p></article>' +
-      bodyCardHTML() + sleepCardHTML() + muscleChartHTML() + quoteHTML() +
+      (tgt ? '<div class="pbar"><i style="width:' + pct + '%"></i></div><p class="meta">' + pct + '% del camino · ' + (cur > tgt ? 'faltan ' + (Math.round((cur - tgt) * 10) / 10) + ' kg' : 'meta alcanzada') + '</p>' : '<p class="meta">Define tu peso objetivo en Ajustes.</p>') + '</article>' +
+      bodyCardHTML() + sleepCardHTML() +
+      '<article class="card"><details class="more"><summary>Más: tiempo de ejercicio, músculos y frase del día</summary><h3>Tiempo de ejercicio</h3>' + timeTilesHTML(days, total) + '<div class="wkgrid">' + cols + '</div>' +
+      '<p class="meta"><b>' + total + ' min</b> esta semana' + (planTot ? ' · plan ' + planTot + (xTot ? ' · <b class="xt2">+' + xTot + ' min extra</b>' : '') : '') + (last ? ' · semana pasada ' + last + ' min (' + (diff >= 0 ? '+' : '') + diff + ')' : '') + '</p>' +
+      '<p class="meta">Objetivo: ' + esc(TW.GOALS[p.goal] || '') + ' · ' + (p.days || 4) + ' días/semana · ' + (p.minutes || 20) + ' min por sesión</p>' +
+      muscleChartHTML() + quoteHTML() + '</details></article>' +
       '<div class="row"><a class="ghost linkbtn" href="#ruta">Ver ruta</a><a class="ghost linkbtn" href="#semana">Editar semana</a></div></section>';
     initBody3d();
   }
@@ -762,6 +774,56 @@
     else out.push('Registra al menos 3 noches para medir la regularidad de tu ritmo circadiano.');
     return out.map(function (t) { return '<p class="meta">' + t + '</p>'; }).join('');
   }
+
+  /* ---------- sueño: semana, caras y recomendaciones ---------- */
+  var GRADE_TXT = { bien: 'Bien', regular: 'Regular', mal: 'Mal' };
+  function faceSVG(g, sz) {
+    var col = g === 'bien' ? '#5fcf8a' : g === 'regular' ? '#f0b94a' : g === 'mal' ? '#ee6a5a' : '#555';
+    var m = g === 'bien' ? 'M8 15 Q14 21 20 15' : g === 'regular' ? 'M9 17 L19 17' : g === 'mal' ? 'M8 19 Q14 13 20 19' : '';
+    return '<svg class="face" width="' + (sz || 30) + '" height="' + (sz || 30) + '" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="12" fill="' + (g ? col + '22' : 'none') + '" stroke="' + col + '" stroke-width="2"' + (g ? '' : ' stroke-dasharray="3 3"') + '/>' +
+      (g ? '<circle cx="10" cy="11" r="1.6" fill="' + col + '"/><circle cx="18" cy="11" r="1.6" fill="' + col + '"/><path d="' + m + '" fill="none" stroke="' + col + '" stroke-width="2" stroke-linecap="round"/>' : '') + '</svg>';
+  }
+  function sleepWeekNow() { return TW.sleepWeek(S.sleep || [], weekDates(0)); }
+  function sleepStripHTML(wk) {
+    return '<div class="sstrip">' + wk.nights.map(function (n, i) {
+      return '<div class="sd' + (n.date === today() ? ' today' : '') + '">' + faceSVG(n.grade) + '<b>' + TW.DOW[i] + '</b><small>' + (n.grade ? fmt1(Math.round(n.dur / 6) / 10) + ' h' : '–') + '</small></div>';
+    }).join('') + '</div>';
+  }
+  function lastNight(wk) {
+    var l = null; wk.nights.forEach(function (n) { if (n.grade && n.date <= today()) l = n; });
+    return l && l.date >= TW.ymd(TW.addDays(new Date(), -1)) ? l : null;
+  }
+  function sleepBannerHTML() {
+    var wk = sleepWeekNow(), adv = TW.sleepAdvice(wk, lastNight(wk));
+    if (adv.level !== 'mal' && adv.level !== 'regular') return '';
+    return '<button class="sleepwarn ' + adv.level + '" data-a="sleepAdvice"><span>' + faceSVG(adv.level, 26) + '</span><span><b>' + adv.head + '</b><small>' + esc(adv.lines[0].split('. ')[0]) + '. Toca para ver.</small></span></button>';
+  }
+  function adviceHTML() {
+    var wk = sleepWeekNow(), adv = TW.sleepAdvice(wk, lastNight(wk));
+    return '<h3>Sueño y tu rutina</h3><div class="advh ' + (adv.level || '') + '">' + faceSVG(adv.level, 34) + '<b>' + adv.head + '</b></div>' +
+      adv.lines.map(function (t) { return '<p class="meta">' + esc(t) + '</p>'; }).join('') +
+      '<p class="meta"><em>Orientación práctica, no diagnóstico. <a href="https://pubmed.ncbi.nlm.nih.gov/33400856/" target="_blank" rel="noopener">Lamon 2021</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/20921542/" target="_blank" rel="noopener">Nedeltcheva 2010</a></em></p>' +
+      '<button class="wide ghost" data-a="closeSheet">Cerrar</button>';
+  }
+  function weekSummaryHTML(days, total, planned, done) {
+    var dates = weekDates(0), wk = sleepWeekNow(), adv = TW.sleepAdvice(wk, lastNight(wk)), km = weekKm(dates);
+    var tile = function (l, v) { return '<div><small>' + l + '</small><b>' + v + '</b></div>'; };
+    return '<article class="card wsum"><div class="card-h"><h3>Resumen semanal</h3><button class="lnk" data-a="weekDetail">Ver detalle ›</button></div>' +
+      '<div class="stats3">' + tile('Días', done + '/' + planned) + tile('Tiempo', fmtMin(total)) + tile('Kcal', '~' + rangeKcal(dates)) +
+      tile('Distancia', km ? '≈' + fmt1(km) + ' km' : '—') + tile('Sueño', wk.n ? fmt1(wk.avgH) + ' h' : '—') + tile('Descanso', wk.level ? GRADE_TXT[wk.level] : '—') + '</div>' +
+      sleepStripHTML(wk) +
+      (adv.level === 'mal' || adv.level === 'regular' ? '<button class="sleepwarn ' + adv.level + '" data-a="sleepAdvice"><span><b>' + adv.head + '</b><small>Puede afectar tu rutina. Toca para ver cómo ajustarla.</small></span></button>' : '') + '</article>';
+  }
+  function weekDetailHTML() {
+    var dates = weekDates(0), wk = sleepWeekNow(), prev = weekDates(-1).reduce(function (a, d) { return a + dayMinutes(d); }, 0), tot = 0;
+    var rows = dates.map(function (d, i) {
+      var m = dayMinutes(d), n = wk.nights[i]; tot += m;
+      return '<tr><th>' + TW.DOW[i] + '</th><td>' + (m ? m + ' min' : '–') + '</td><td>' + (m ? '~' + dayKcal(d) : '–') + '</td><td>' + (weekKm([d]) ? '≈' + fmt1(weekKm([d])) : '–') + '</td><td>' + faceSVG(n.grade, 20) + ' ' + (n.grade ? fmt1(Math.round(n.dur / 6) / 10) + ' h' : '–') + '</td></tr>';
+    }).join('');
+    return '<h3>Detalle de la semana</h3><table class="b3t wtab"><thead><tr><th></th><th>Tiempo</th><th>Kcal</th><th>Km</th><th>Sueño</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+      '<p class="meta">' + (prev ? 'Semana pasada: ' + fmtMin(prev) + ' (' + (tot - prev >= 0 ? '+' : '') + (tot - prev) + ' min). ' : '') + 'Calorías y distancia son estimaciones; la distancia de caminata/trote sin dato usa un ritmo medio.</p>' +
+      '<button class="wide ghost" data-a="sleepAdvice">Ver recomendaciones de sueño</button><button class="wide ghost" data-a="closeSheet">Cerrar</button>';
+  }
   function sleepCardHTML() {
     var arr = S.sleep || [], d = today(), cur = arr.filter(function (x) { return x.date === d; })[0] || {}, r = TW.sleepScore(arr), res = '';
     if (r) {
@@ -774,11 +836,12 @@
       res = '<div class="slres"><div class="slbig"><small>' + (isToday ? 'Anoche' : 'Última noche · ' + r.last.date.slice(5)) + '</small><b>' + fmtDur(r.durMin) + '</b>' +
         '<span class="pill sl ' + r.label.toLowerCase() + '">Calidad ' + r.label + ' · ' + r.score + '</span></div>' +
         (r.circ ? '<p class="circ ' + (r.circ.label === 'Alineado' ? 'ok' : r.circ.label === 'En ajuste' ? 'mid' : 'bad') + '">Ritmo circadiano: <b>' + r.circ.label + '</b> (' + r.circ.score + '/100)</p>' : '<p class="meta">Ritmo circadiano: registra 3 noches para medirlo.</p>') +
-        bars + '<p class="lbl">Últimas noches (verde = 7–9 h)</p><div class="slbars">' + nb + '</div>' +
+        '<details class="more"><summary>Ver detalle del sueño</summary>' + bars + '<p class="lbl">Últimas noches (verde = 7–9 h)</p><div class="slbars">' + nb + '</div>' +
         '<p class="lbl">Tu aporte al objetivo</p>' + sleepGoalText(r) +
-        '<p class="meta"><em>Estimación orientativa a partir de lo que registras (duración, regularidad, horario y cómo te sentiste); no es un diagnóstico.</em></p></div>';
+        '<p class="meta"><em>Estimación orientativa a partir de lo que registras (duración, regularidad, horario y cómo te sentiste); no es un diagnóstico.</em></p></details></div>';
     }
     return '<article class="card sleepcard"><h3>Sueño</h3>' + skyHTML() +
+      '<label class="field">Fecha del registro<input type="date" id="sleepDate" value="' + d + '" max="' + d + '" min="' + TW.ymd(TW.addDays(new Date(), -13)) + '"></label>' +
       '<div class="grid2"><label class="field">Me acosté<input type="time" id="sleepBed" value="' + (cur.bed || '') + '"></label>' +
       '<label class="field">Me levanté<input type="time" id="sleepWake" value="' + (cur.wake || '') + '"></label></div>' +
       '<label class="field">Cómo me sentí al despertar<select id="sleepQ"><option value="1"' + (cur.q === 1 ? ' selected' : '') + '>Mal</option><option value="3"' + (cur.q == null || cur.q === 3 ? ' selected' : '') + '>Regular</option><option value="5"' + (cur.q === 5 ? ' selected' : '') + '>Bien</option></select></label>' +
@@ -818,6 +881,7 @@
     }).join('');
     var ss = (S.sess || {})[today()], mins = info.exs.reduce(function (a, e) { return a + estMin(e); }, 0);
     var started = canLog && ss, sessTxt = started ? 'Inicio ' + clock(ss.s) + (ss.fin ? ' · fin ' + clock(ss.e) : ' · en curso') : '';
+    var amToday = ((S.acts || {})[today()] || []).reduce(function (a, x) { return a + x.min; }, 0);
     var complete = info.exs.length && total > 0 && done >= total;
     var dkc = dayKcal(weekDates(0)[selDay]);
     var okCard = '<article class="card okcard"><svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true"><circle cx="32" cy="32" r="29" fill="none" stroke="var(--gold,#d4a84b)" stroke-width="4"/><path d="M19 33l9 9 17-20" fill="none" stroke="var(--gold,#d4a84b)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
@@ -825,7 +889,7 @@
       '<div class="grid2"><button class="ghost" data-a="recap">Ver resumen</button><button class="ghost" data-a="toggleList">' + (showList ? 'Ocultar rutina' : 'Editar rutina') + '</button></div></article>';
     var body = info.exs.length
       ? (complete ? okCard + (showList ? rowsHTML(info.exs, canLog) : '')
-        : '<article class="card sumcard"><div class="sumtop"><div><b>' + done + '/' + total + '</b> <span>series</span></div><div class="sumr">~' + mins + ' min · ' + info.exs.length + ' ejercicios</div></div>' +
+        : '<article class="card sumcard"><div class="sumtop"><div><b>' + done + '/' + total + '</b> <span>series</span></div><div class="sumr">~' + mins + ' min' + (amToday ? ' + ' + amToday + ' extra' : '') + ' · ' + info.exs.length + ' ejercicios</div></div>' +
         '<div class="pbar"><i style="width:' + pct + '%"></i></div>' +
         (sessTxt ? '<p class="meta">' + sessTxt + (dkc ? ' · ~' + dkc + ' kcal' : '') + '</p>' : '') +
         (canLog ? '<button class="wide" data-a="startRun">' + (done > 0 ? 'Continuar sesión' : 'Iniciar sesión') + '</button>' : '<p class="meta">Solo puedes registrar el día de hoy.</p>') + '</article>' +
@@ -837,7 +901,7 @@
     view.innerHTML = '<section class="page"><nav class="dows">' + dows + '</nav>' +
       '<h2 class="title">' + esc(info.name) + '</h2>' +
       '<p class="sub">' + (info.groups.map(function (g) { return TW.MUSCLES[g]; }).join(' · ') || 'Sin entrenamiento programado') + '</p>' +
-      minCardHTML() + body + '</section>';
+      sleepBannerHTML() + minCardHTML() + body + '</section>';
   }
   function minCardHTML() {
     var p = S.profile || {}, wk = TW.weekKey(today());
@@ -1259,6 +1323,7 @@
     for (var w = 7; w >= 0; w--) {
       var ws = TW.weekStart(TW.addDays(new Date(), -7 * w)), k = TW.ymd(ws), km = 0;
       S.logs.forEach(function (l) { if (l.cardio && TW.weekKey(l.date) === k) km += Number(l.cardio.km) || 0; });
+      Object.keys(S.acts || {}).forEach(function (d) { if (TW.weekKey(d) === k) S.acts[d].forEach(function (a) { km += actKm(a); }); });
       weeks.push({ l: k, v: km });
     }
     var body = S.body.slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; });
@@ -1302,6 +1367,7 @@
         (st.bedSdMin > 30 ? '<p class="note">Tu hora de dormir cambia mucho. Criterio práctico: intentar ±30 min.</p>' : '');
     }
     return '<div class="card"><h3>Sueño y ritmo</h3>' +
+      '<label class="field">Fecha del registro<input type="date" id="sleepDate" value="' + today() + '" max="' + today() + '" min="' + TW.ymd(TW.addDays(new Date(), -13)) + '"></label>' +
       '<div class="grid2"><label class="field">Hora de dormir<input type="time" id="sleepBed"></label>' +
       '<label class="field">Hora de despertar<input type="time" id="sleepWake"></label>' +
       '<label class="field">Cómo dormiste<select id="sleepQ"><option value="3">Regular</option><option value="1">Mal</option><option value="5">Bien</option></select></label></div>' +
@@ -1326,7 +1392,7 @@
   function saveSleep() {
     var bed = $('#sleepBed').value, wake = $('#sleepWake').value, q = Number($('#sleepQ').value);
     if (!bed || !wake) { toast('Ingresa hora de dormir y de despertar'); return; }
-    var d = today();
+    var dEl = $('#sleepDate'), d = dEl && dEl.value && dEl.value <= today() ? dEl.value : today();
     S.sleep = (S.sleep || []).filter(function (x) { return x.date !== d; });
     S.sleep.push({ date: d, bed: bed, wake: wake, q: q });
     save(); route(); toast('Sueño registrado');
@@ -1928,6 +1994,8 @@
       toast(TW.ACT_TYPES[actCtx.t] + ' guardada · ~' + Math.round(TW.kcal(TW.actMet(actCtx.t, actCtx.km, actCtx.min), kgOn(k), actCtx.min)) + ' kcal');
     },
     actDel: function (el, d) { var k = today(); (S.acts[k] || []).splice(Number(d.i), 1); if (!S.acts[k].length) delete S.acts[k]; save(); renderToday(); },
+    weekDetail: function () { openSheet(weekDetailHTML()); },
+    sleepAdvice: function () { openSheet(adviceHTML()); },
     recap: function () { openSheet(recapHTML(TW.dayInfo(S, S.week[selDay]))); },
     toggleList: function () { showList = !showList; renderToday(); },
     addMin: function (el, d) { var k = today(); S.extraMin = S.extraMin || {}; S.extraMin[k] = (S.extraMin[k] || 0) + Number(d.m); touchSession(); save(); renderToday(); toast('+' + d.m + ' min registrados'); },

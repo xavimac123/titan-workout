@@ -95,5 +95,16 @@ ok(Math.abs(ma[1].v - 81) < 1e-9, 'promedio móvil de los registros');
   ok(m.pct > 30 && m.pct < 40, 'grasa hombre sin cambios ' + m.pct.toFixed(1));
 }
 
+{ // semana de sueño
+  const mk = (d, bed, wake, q) => ({ date: d, bed, wake, q });
+  const ds = ['2026-11-23','2026-11-24','2026-11-25','2026-11-26','2026-11-27','2026-11-28','2026-11-29'];
+  const w = TW.sleepWeek([mk(ds[0],'23:00','05:00',3), mk(ds[1],'23:30','05:00',3), mk(ds[2],'22:30','05:30',5)], ds);
+  ok(w.n === 3 && w.short === 1 && w.level === 'regular', 'semana de sueño regular: ' + w.level + ' ' + w.avgH);
+  const g = TW.sleepWeek([mk(ds[0],'22:30','06:00',5)], ds);
+  ok(g.level === 'bien' && TW.sleepAdvice(g, g.nights[0]).level === 'bien', 'sueño bueno sin advertencia');
+  const b = TW.sleepWeek([mk(ds[0],'01:00','05:00',1), mk(ds[1],'01:00','05:00',1), mk(ds[2],'01:00','05:00',1)], ds);
+  ok(b.level === 'mal' && TW.sleepAdvice(b, b.nights[2]).lines.length >= 2, 'sueño malo advierte');
+}
+
 console.log(fails ? '\n' + fails + ' fallos' : '\nTodas las pruebas pasaron');
 process.exit(fails ? 1 : 0);

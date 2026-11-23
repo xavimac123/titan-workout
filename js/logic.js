@@ -109,6 +109,43 @@
       series: win.map(function (e) { return { date: e.date, durMin: durOf(e) }; }) };
   };
 
+
+  /* Sueño por noche y por semana. Criterio práctico (no clínico): <6 h = mal; 6–7 h o >9 h = regular; 7–9 h = bien;
+     sentirse mal al despertar baja un nivel. Semana: promedio <6 h o ≥3 noches cortas = mal; <7 h = regular. */
+  TW.nightGrade = function (e) {
+    var d = durOf(e), g = d < 360 ? 0 : (d < 420 || d > 540) ? 1 : 2;
+    if (e.q === 1) g = Math.max(0, g - 1);
+    return ['mal', 'regular', 'bien'][g];
+  };
+  TW.sleepWeek = function (entries, dates) {
+    var by = {}; (entries || []).forEach(function (e) { by[e.date] = e; });
+    var nights = dates.map(function (d) {
+      var e = by[d];
+      return e ? { date: d, dur: durOf(e), grade: TW.nightGrade(e), bed: bedAdj(e) } : { date: d, grade: null };
+    });
+    var rec = nights.filter(function (n) { return n.grade; });
+    if (!rec.length) return { nights: nights, n: 0, level: null };
+    var avg = rec.reduce(function (s, n) { return s + n.dur; }, 0) / rec.length;
+    var short = rec.filter(function (n) { return n.dur < 360; }).length;
+    var sdBed = rec.length >= 3 ? Math.round(sdOf(rec.map(function (n) { return n.bed; }))) : null;
+    var level = avg < 360 || short >= 3 ? 'mal' : avg < 420 ? 'regular' : 'bien';
+    return { nights: nights, n: rec.length, avgMin: Math.round(avg), avgH: Math.round(avg / 6) / 10, short: short, sdBed: sdBed, level: level,
+      cnt: { bien: rec.filter(function (n) { return n.grade === 'bien'; }).length, regular: rec.filter(function (n) { return n.grade === 'regular'; }).length, mal: rec.filter(function (n) { return n.grade === 'mal'; }).length } };
+  };
+  /* Consecuencias para la rutina según el sueño. Devuelve {level, head, lines[]}. */
+  TW.sleepAdvice = function (wk, last) {
+    var lines = [], lvl = 'bien', head = 'Buen descanso';
+    if (!wk || !wk.n) return { level: null, head: 'Sin registros esta semana', lines: ['Registra tu sueño para recibir recomendaciones sobre tu rutina.'] };
+    if (last && last.grade === 'mal') { lvl = 'mal'; lines.push('Noche corta: hoy haz una sesión ligera (1 serie menos por ejercicio, sin llegar al fallo) y cuida la técnica. Con poco sueño se rinde menos y se recupera peor; en un estudio, una noche en vela redujo 18 % la síntesis de proteína muscular.'); }
+    else if (last && last.grade === 'regular') { lvl = 'regular'; lines.push('Sueño justo: entrena normal pero sin subir cargas ni repeticiones hoy.'); }
+    if (wk.short >= 3) { lvl = 'mal'; lines.push('Tres o más noches cortas esta semana: cambia una sesión de fuerza por caminata o movilidad y no subas cargas hasta recuperar 7 h.'); }
+    else if (wk.avgMin < 420) { if (lvl === 'bien') lvl = 'regular'; lines.push('Promedio de ' + wk.avgH + ' h, bajo las 7 recomendadas: mantén las cargas actuales esta semana. Dormir poco también frena la pérdida de grasa y favorece perder músculo en déficit.'); }
+    if (wk.sdBed != null && wk.sdBed > 60) lines.push('Tu hora de dormir varía más de 1 h: fijar la hora de acostarte (±30 min) mejora el ritmo circadiano y la recuperación.');
+    if (wk.cnt.mal >= 4) lines.push('Si llevas varias semanas así, o tienes cansancio durante el día, consulta a un médico.');
+    if (!lines.length) lines.push('Descanso adecuado: puedes mantener la progresión prevista.');
+    head = lvl === 'mal' ? 'Descanso insuficiente' : lvl === 'regular' ? 'Descanso justo' : 'Buen descanso';
+    return { level: lvl, head: head, lines: lines };
+  };
   /* Composición corporal estimada (hombre y mujer). Dos métodos independientes y su promedio:
      · Marina de EE. UU.: 86,010·log10(cintura−cuello) − 70,041·log10(estatura) + 36,76, con medidas en pulgadas.
      · Deurenberg 1991: 1,20·IMC + 0,23·edad − 10,8 − 5,4 (sexo masculino = 1).

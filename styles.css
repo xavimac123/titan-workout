@@ -385,3 +385,15 @@ button:active:not(:disabled),.xmain:active{transform:scale(.97)}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none !important;transition:none !important}}
 @media (max-width:360px){.hero{grid-template-columns:92px 1fr}.ring{width:92px;height:92px}.hero .big{font-size:2.1rem}}
 nav button,.tabs button{font-size:.78rem;letter-spacing:0;padding-left:2px;padding-right:2px}
+
+/* ---- v27: resumen semanal y sueño ---- */
+.wsum .card-h{align-items:center;margin-bottom:6px}.wsum h3{margin:0}.wsum .lnk{color:var(--gold,#d4a84b);background:none;border:0;padding:4px 0}
+.wsum .stats3 b{font-size:1.25rem}
+.sstrip{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;margin:6px 0 4px}
+.sd{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;border-radius:10px}.sd.today{background:rgba(255,255,255,.06)}
+.sd b{font-size:.7rem;font-family:var(--cond);letter-spacing:.04em}.sd small{font-size:.65rem;color:var(--muted,#9aa)}
+.sleepwarn{display:flex;gap:10px;align-items:center;width:100%;text-align:left;border-radius:12px;padding:10px 12px;margin:8px 0;border:1px solid;background:rgba(240,185,74,.08);color:inherit}
+.sleepwarn.mal{border-color:rgba(238,106,90,.5);background:rgba(238,106,90,.1)}.sleepwarn.regular{border-color:rgba(240,185,74,.45)}
+.sleepwarn b{display:block}.sleepwarn small{display:block;color:var(--muted,#9aa);font-size:.78rem}
+.advh{display:flex;align-items:center;gap:10px;margin:6px 0 10px}.advh b{font-size:1.1rem}
+.wtab td,.wtab th{padding:6px 4px;text-align:center;font-size:.8rem}.wtab td svg{vertical-align:middle}
