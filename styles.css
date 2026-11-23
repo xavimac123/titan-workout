@@ -342,3 +342,7 @@ details.more{margin:10px 0}details.more>summary{cursor:pointer;color:var(--muted
 .tmrbtns{display:flex;gap:10px;margin:14px 0}.tmrbtns button{flex:1;padding:14px;border-radius:12px}
 .stats3.tt b{font-size:1.2rem}.hist{list-style:none;padding:0;margin:6px 0}.hist li{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.07);font-size:.85rem}
 .tmr{background:#0b0c0f !important}.tmr-body .lnk{background:none;border:0;color:var(--muted,#9aa);padding:10px}
+
+.okcard{text-align:center}.okcard svg{display:block;margin:0 auto 6px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.hist li button.lnk{flex:none}
+.xdel{background:none !important;border:0 !important;color:var(--muted,#9aa) !important;padding:4px 8px !important;min-width:0 !important;width:auto !important;height:auto !important;font-size:1rem}

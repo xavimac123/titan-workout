@@ -109,15 +109,16 @@
       series: win.map(function (e) { return { date: e.date, durMin: durOf(e) }; }) };
   };
 
-  /* Composición corporal estimada (hombre). Dos métodos independientes y su promedio:
+  /* Composición corporal estimada (hombre y mujer). Dos métodos independientes y su promedio:
      · Marina de EE. UU.: 86,010·log10(cintura−cuello) − 70,041·log10(estatura) + 36,76, con medidas en pulgadas.
      · Deurenberg 1991: 1,20·IMC + 0,23·edad − 10,8 − 5,4 (sexo masculino = 1).
      Son estimaciones (error típico ≈ 4 puntos); un % ingresado a mano desde una foto o báscula la reemplaza. */
   var cl = function (x, a, b) { return Math.max(a, Math.min(b, x)); };
   TW.bodyFat = function (p, e) {
-    var h = Number(p.height), age = Number(p.age) || 34, kg = Number(e.kg), w = Number(e.waist), n = Number(e.neck), out = { navy: null, dm: null };
-    if (h > 0 && w > n && n > 0) out.navy = 86.010 * Math.log10((w - n) / 2.54) - 70.041 * Math.log10(h / 2.54) + 36.76;
-    if (h > 0 && kg > 0) out.dm = 1.20 * (kg / Math.pow(h / 100, 2)) + 0.23 * age - 10.8 - 5.4;
+    var h = Number(p.height), age = Number(p.age) || 34, kg = Number(e.kg), w = Number(e.waist), n = Number(e.neck), hip = Number(e.hip), fem = p.sex === 'f', out = { navy: null, dm: null };
+    if (!fem && h > 0 && w > n && n > 0) out.navy = 86.010 * Math.log10((w - n) / 2.54) - 70.041 * Math.log10(h / 2.54) + 36.76;
+    if (fem && h > 0 && n > 0 && hip > 0 && w + hip > n) out.navy = 163.205 * Math.log10((w + hip - n) / 2.54) - 97.684 * Math.log10(h / 2.54) - 78.387;
+    if (h > 0 && kg > 0) out.dm = 1.20 * (kg / Math.pow(h / 100, 2)) + 0.23 * age - (fem ? 0 : 10.8) - 5.4;
     var v = [out.navy, out.dm].filter(function (x) { return x != null && isFinite(x); }).map(function (x) { return cl(x, 4, 60); });
     if (e.bf > 0) { out.pct = cl(Number(e.bf), 4, 60); out.lo = out.hi = out.pct; out.manual = true; }
     else if (v.length) { out.pct = v.reduce(function (s, x) { return s + x; }, 0) / v.length; out.lo = Math.min.apply(null, v); out.hi = Math.max.apply(null, v); }
@@ -128,13 +129,13 @@
   /* Modelo corporal de una fecha: completa medidas que faltan con la última registrada antes (o el perfil). */
   TW.bodyModel = function (S, entry) {
     var p = S.profile || {}, list = (S.body || []).slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; });
-    var m = { date: entry.date, kg: entry.kg, waist: entry.waist, neck: entry.neck, arm: entry.arm, bf: entry.bf, h: p.height, age: p.age };
-    ['waist', 'neck', 'arm', 'bf'].forEach(function (k) {
+    var m = { date: entry.date, kg: entry.kg, waist: entry.waist, neck: entry.neck, arm: entry.arm, hip: entry.hip, bf: entry.bf, h: p.height, age: p.age };
+    ['waist', 'neck', 'arm', 'hip', 'bf'].forEach(function (k) {
       if (m[k] > 0) return;
       for (var i = list.length - 1; i >= 0; i--) if (list[i].date <= entry.date && list[i][k] > 0 && (k !== 'bf' || list[i].date === entry.date)) { m[k] = list[i][k]; return; }
       if (k !== 'bf') m[k] = p[k] || null;
     });
-    m.fat = TW.bodyFat({ height: m.h, age: m.age }, m);
+    m.fat = TW.bodyFat({ height: m.h, age: m.age, sex: p.sex }, m);
     m.bmi = m.kg > 0 && m.h > 0 ? m.kg / Math.pow(m.h / 100, 2) : null;
     return m;
   };
@@ -489,6 +490,26 @@
     });
   };
 
+
+  /* Gasto energético estimado: kcal = MET × peso (kg) × horas. MET del Compendio de Actividades Físicas
+     (Ainsworth et al. 2011). Es una estimación: el error individual suele ser de ±20–30 %. */
+  var WALK = [[3.2, 2.8], [4.0, 3.0], [4.8, 3.5], [5.6, 4.3], [6.4, 5.0], [7.2, 6.3]];     // km/h → MET caminando
+  var RUN = [[6.4, 6.0], [8.0, 8.3], [9.7, 9.8], [11.3, 11.0], [12.9, 11.8], [14.5, 12.8]]; // km/h → MET corriendo
+  var interp = function (tb, v) {
+    if (v <= tb[0][0]) return tb[0][1];
+    for (var i = 1; i < tb.length; i++) if (v <= tb[i][0]) return tb[i - 1][1] + (tb[i][1] - tb[i - 1][1]) * (v - tb[i - 1][0]) / (tb[i][0] - tb[i - 1][0]);
+    return tb[tb.length - 1][1];
+  };
+  TW.ACT_TYPES = { caminata: 'Caminata', trote: 'Trote', correr: 'Correr' };
+  TW.actMet = function (type, km, min) {
+    var v = km > 0 && min > 0 ? km / (min / 60) : null;
+    if (type === 'caminata') return v ? interp(WALK, Math.min(v, 7.2)) : 3.5;
+    if (type === 'trote') return v ? interp(RUN, Math.max(v, 6.4)) : 7.0;
+    return v ? interp(RUN, Math.max(v, 8.0)) : 9.8;
+  };
+  TW.CARDIO_MET = { saltar_cuerda: 11.8, bici_estatica: 7.0, jumping_jacks: 8.0, high_knees: 8.0, marcha_sitio: 3.5, boxeo_sombra: 5.5 };
+  TW.MET_STRENGTH = 4.0; TW.MET_FLEX = 2.3; TW.MET_GENERIC = 4.0;
+  TW.kcal = function (met, kg, min) { return met * kg * (min / 60); };
   TW.hrZone = function (hr, age) {
     if (!hr || !age) return null;
     var pct = hr / (220 - age) * 100;

@@ -363,7 +363,7 @@
   function fmtMin(m) { return m >= 60 ? Math.floor(m / 60) + ' h ' + (m % 60 ? (m % 60) + ' min' : '') : m + ' min'; }
   function monthMinutes() {
     var pre = today().slice(0, 7), set = {};
-    Object.keys(S.sess || {}).concat((S.logs || []).map(function (l) { return l.date; }), Object.keys(S.extraMin || {})).forEach(function (d) { if (d.indexOf(pre) === 0) set[d] = 1; });
+    Object.keys(S.sess || {}).concat((S.logs || []).map(function (l) { return l.date; }), Object.keys(S.extraMin || {}), Object.keys(S.acts || {})).forEach(function (d) { if (d.indexOf(pre) === 0) set[d] = 1; });
     return Object.keys(set).reduce(function (a, d) { return a + dayMinutes(d); }, 0);
   }
   function dayMinutes(date) {
@@ -375,7 +375,8 @@
       if (l.flexDone) est += 5;
     });
     var act = sess ? Math.round((sess.e - sess.s) / 60000) : 0;
-    return Math.min(150, Math.round(Math.max(act, est)) + ((S.extraMin || {})[date] || 0));
+    var am = ((S.acts || {})[date] || []).reduce(function (a, x) { return a + (x.min || 0); }, 0);
+    return Math.min(180, Math.round(Math.max(act, est)) + ((S.extraMin || {})[date] || 0) + am);
   }
   function isExtra(date, id) { return ((S.extras || {})[date] || []).indexOf(id) >= 0; }
   function planMin(i) {
@@ -387,6 +388,66 @@
     var date = weekDates(0)[pd()]; S.extras = S.extras || {};
     (S.extras[date] = S.extras[date] || []).push(id);
   }
+
+  /* ---------- calorías y actividad adicional (caminata, trote, correr) ---------- */
+  function kgOn(date) {
+    var list = (S.body || []).filter(function (b) { return b.date <= date && b.kg > 0; }).sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    return list.length ? list[list.length - 1].kg : ((S.profile && S.profile.weight) || 70);
+  }
+  function dayKcal(date) {
+    var kg = kgOn(date), k = 0, other = 0, setMin = 0;
+    S.logs.forEach(function (l) {
+      if (l.date !== date) return;
+      var e = TW.getEx(S, l.ex);
+      setMin += (l.sets || []).filter(Boolean).length * 1.5;
+      if (l.cardio && l.cardio.min) {
+        var met = TW.CARDIO_MET[l.ex] || (/camin/.test(l.ex) ? TW.actMet('caminata', l.cardio.km, l.cardio.min) : (e && /trot|corr/.test(l.ex) ? TW.actMet('trote', l.cardio.km, l.cardio.min) : 5.0));
+        k += TW.kcal(met, kg, l.cardio.min); other += l.cardio.min;
+      }
+      if (l.flexDone) { k += TW.kcal(TW.MET_FLEX, kg, 5); other += 5; }
+    });
+    ((S.acts || {})[date] || []).forEach(function (a) { k += TW.kcal(TW.actMet(a.t, a.km, a.min), kg, a.min); other += a.min; });
+    var ss = (S.sess || {})[date], sessMin = ss ? Math.round((ss.e - ss.s) / 60000) : 0;
+    var str = Math.max(setMin, Math.min(sessMin - other, setMin * 2 + 10));
+    k += TW.kcal(TW.MET_STRENGTH, kg, Math.max(0, str));
+    k += TW.kcal(TW.MET_GENERIC, kg, (S.extraMin || {})[date] || 0);
+    return Math.round(k);
+  }
+  function rangeKcal(dates) { return dates.reduce(function (a, d) { return a + dayKcal(d); }, 0); }
+  function monthKcal() {
+    var pre = today().slice(0, 7), set = {};
+    Object.keys(S.sess || {}).concat((S.logs || []).map(function (l) { return l.date; }), Object.keys(S.extraMin || {}), Object.keys(S.acts || {})).forEach(function (d) { if (d.indexOf(pre) === 0) set[d] = 1; });
+    return rangeKcal(Object.keys(set));
+  }
+  var actCtx = null;
+  function actsCardHTML(canLog) {
+    var date = weekDates(0)[selDay], list = (S.acts || {})[date] || [];
+    return '<article class="card"><h3>Actividad adicional</h3>' +
+      (list.length ? '<ul class="hist">' + list.map(function (a, i) {
+        return '<li><span>' + TW.ACT_TYPES[a.t] + '</span><span>' + a.min + ' min' + (a.km ? ' · ' + fmt1(a.km) + ' km' : '') + ' · ~' + Math.round(TW.kcal(TW.actMet(a.t, a.km, a.min), kgOn(date), a.min)) + ' kcal</span>' +
+          (canLog ? '<button class="xdel" data-a="actDel" data-i="' + i + '" aria-label="Quitar">✕</button>' : '') + '</li>';
+      }).join('') + '</ul>' : '<p class="meta">¿Caminaste, trotaste o corriste hoy? Regístralo con su tiempo.</p>') +
+      (canLog ? '<div class="grid3"><button class="ghost" data-a="actOpen" data-t="caminata">Caminata</button><button class="ghost" data-a="actOpen" data-t="trote">Trote</button><button class="ghost" data-a="actOpen" data-t="correr">Correr</button></div>' : '') + '</article>';
+  }
+  function renderActSheet() {
+    var c = actCtx, kg = kgOn(today()), met = TW.actMet(c.t, c.km, c.min), kc = Math.round(TW.kcal(met, kg, c.min));
+    openSheet('<h3>' + TW.ACT_TYPES[c.t] + '</h3>' +
+      '<div class="chips">' + ['caminata', 'trote', 'correr'].map(function (t) { return '<button class="chip' + (t === c.t ? ' on' : '') + '" data-a="actType" data-t="' + t + '">' + TW.ACT_TYPES[t] + '</button>'; }).join('') + '</div>' +
+      '<p class="lbl">Tiempo (min)</p><div class="stepper"><button data-a="actStep" data-f="min" data-d="-5">−</button><output>' + c.min + '</output><button data-a="actStep" data-f="min" data-d="5">+</button></div>' +
+      '<p class="lbl">Distancia (km, opcional)</p><div class="stepper"><button data-a="actStep" data-f="km" data-d="-0.5">−</button><output>' + (c.km ? fmt1(c.km) : '—') + '</output><button data-a="actStep" data-f="km" data-d="0.5">+</button></div>' +
+      '<p class="meta">Gasto estimado: <b>~' + kc + ' kcal</b> (MET ' + met.toFixed(1) + ' con ' + fmt1(kg) + ' kg)' + (c.km > 0 ? ' · ' + fmt1(c.km / (c.min / 60)) + ' km/h' : '') + '. Estimación con error de ±20–30 %.</p>' +
+      '<button class="wide" data-a="actSave">Guardar</button>');
+  }
+  function recapHTML(info) {
+    return '<h3>Resumen del día</h3><ul class="hist">' + orderedExs(info.exs).map(function (e) {
+      var L = getLog(today(), e.id), t;
+      if (e.type === 'cardio') t = L && L.cardio ? L.cardio.min + ' min' + (L.cardio.km ? ' · ' + L.cardio.km + ' km' : '') : '—';
+      else if (e.type === 'fuerza') t = L ? L.sets.filter(Boolean).map(function (x) { return x.reps + (isTimed(e) ? 's' : '') + (x.load != null ? '×' + x.load + 'kg' : ''); }).join(' · ') || '—' : '—';
+      else t = L && L.flexDone ? '✓' : '—';
+      return '<li><span>' + esc(TW.exName(e)) + '</span><b>' + esc(t) + '</b></li>';
+    }).join('') + '</ul><button class="wide ghost" data-a="closeSheet">Cerrar</button>';
+  }
+  var showList = false;
   function timeCardHTML(canLog) {
     var date = weekDates(0)[selDay], real = dayMinutes(date), plan = planMin(selDay), ex = Math.max(0, real - plan);
     var n = ((S.extras || {})[date] || []).length;
@@ -566,15 +627,16 @@
     var rng = fb.pct != null && !fb.manual ? '≈ ' + fmt1(fb.pct) + ' % <small>(rango ' + fmt1(fb.lo) + '–' + fmt1(fb.hi) + ')</small>' : (fb.pct != null ? fmt1(fb.pct) + ' % <small>(ingresado)</small>' : '—');
     var photos = ph.length >= 2 ? '<div class="b3ph"><figure><img src="' + ph[0].data + '" alt="Foto inicial"><figcaption>Foto inicial · ' + ph[0].date.slice(5) + '</figcaption></figure><figure><img src="' + ph[ph.length - 1].data + '" alt="Última foto"><figcaption>Última foto · ' + ph[ph.length - 1].date.slice(5) + '</figcaption></figure></div>' : '';
     return '<article class="card bodycard"><h3>Mi cuerpo</h3>' +
+      (p && p.sex === 'f' ? '<p class="note">La figura 3D usa proporciones masculinas, así que por ahora no se muestra para perfiles de mujer. Las medidas, el % de grasa y la masa magra sí se calculan y se comparan abajo.</p>' :
       '<div class="b3row"><figure><canvas class="b3" data-m="before"></canvas><figcaption>Inicio · ' + A.date.slice(5) + '</figcaption></figure>' +
       '<figure><canvas class="b3" data-m="after"></canvas><figcaption>Hoy · ' + B.date.slice(5) + '</figcaption></figure></div>' +
       '<div class="b3leg"><span><i class="r"></i> Músculo</span><span><i class="y"></i> Grasa visible (estimada)</span></div>' +
       '<div class="b3ctl"><button class="ghost sm" data-a="b3view" data-v="0">Frente</button><button class="ghost sm" data-a="b3view" data-v="1">Perfil</button><button class="ghost sm" data-a="b3view" data-v="2">Espalda</button><button class="ghost sm" data-a="b3view" data-v="r">Girar</button></div>' +
-      '<p class="meta">Arrastra la figura para girarla.</p>' +
+      '<p class="meta">Arrastra la figura para girarla.</p>') +
       '<div class="b3big"><div><small>Grasa corporal</small><b>' + rng + '</b></div><div><small>Masa magra</small><b>' + (fb.leanKg != null ? fmt1(fb.leanKg) + ' kg' : '—') + '</b></div><div><small>Masa grasa</small><b>' + (fb.fatKg != null ? fmt1(fb.fatKg) + ' kg' : '—') + '</b></div></div>' +
       '<table class="b3t"><thead><tr><th></th><th>Inicio</th><th>Hoy</th><th>Cambio</th></tr></thead><tbody>' +
       row('Estatura (cm)', B.h, B.h) + row('Edad (años)', A.age, B.age) +
-      row('Peso (kg)', A.kg, B.kg, ' kg', true) + row('Cintura (cm)', A.waist, B.waist, ' cm', true) + row('Cuello (cm)', A.neck, B.neck, ' cm') + row('Brazo (cm)', A.arm, B.arm, ' cm') +
+      row('Peso (kg)', A.kg, B.kg, ' kg', true) + row('Cintura (cm)', A.waist, B.waist, ' cm', true) + row('Cuello (cm)', A.neck, B.neck, ' cm') + (p && p.sex === 'f' ? row('Cadera (cm)', A.hip, B.hip, ' cm') : '') + row('Brazo (cm)', A.arm, B.arm, ' cm') +
       '<tr><th>Grasa (%)</th><td>' + pctTxt(fa) + '</td><td>' + pctTxt(fb) + '</td>' + delta(fa.pct, fb.pct, ' pts', true) + '</tr>' +
       '<tr><th>Masa magra (kg)</th><td>' + fmt1(fa.leanKg) + '</td><td>' + fmt1(fb.leanKg) + '</td>' + delta(fa.leanKg, fb.leanKg, ' kg', false) + '</tr>' +
       '</tbody></table>' +
@@ -621,9 +683,10 @@
     var todayM = dayMinutes(today()), ss = (S.sess || {})[today()];
     var hist = Object.keys(S.sess || {}).sort().reverse().slice(0, 7).map(function (d) {
       var x = S.sess[d];
-      return '<li><span>' + d.slice(5) + '</span><span>' + clock(x.s) + ' → ' + (x.fin ? clock(x.e) : 'en curso') + '</span><b>' + fmtMin(dayMinutes(d)) + '</b></li>';
+      return '<li><span>' + d.slice(5) + '</span><span>' + clock(x.s) + ' → ' + (x.fin ? clock(x.e) : 'en curso') + '</span><b>' + fmtMin(dayMinutes(d)) + ' · ~' + dayKcal(d) + ' kcal</b></li>';
     }).join('');
     return '<div class="stats3 tt"><div><small>Hoy</small><b>' + fmtMin(todayM) + '</b></div><div><small>Semana</small><b>' + fmtMin(total) + '</b></div><div><small>Mes</small><b>' + fmtMin(monthMinutes()) + '</b></div></div>' +
+      '<p class="meta">Calorías estimadas: hoy <b>~' + dayKcal(today()) + '</b> · semana <b>~' + rangeKcal(weekDates(0)) + '</b> · mes <b>~' + monthKcal() + '</b> kcal</p>' +
       (ss ? '<p class="meta">Hoy: inicio <b>' + clock(ss.s) + '</b> · ' + (ss.fin ? 'fin <b>' + clock(ss.e) + '</b>' : 'sesión en curso') + '</p>' : '<p class="meta">Hoy aún no iniciaste sesión.</p>') +
       (hist ? '<details class="more"><summary>Historial de sesiones</summary><ul class="hist">' + hist + '</ul></details>' : '');
   }
@@ -753,15 +816,22 @@
     }).join('');
     var ss = (S.sess || {})[today()], mins = info.exs.reduce(function (a, e) { return a + estMin(e); }, 0);
     var started = canLog && ss, sessTxt = started ? 'Inicio ' + clock(ss.s) + (ss.fin ? ' · fin ' + clock(ss.e) : ' · en curso') : '';
+    var complete = info.exs.length && total > 0 && done >= total;
+    var dkc = dayKcal(weekDates(0)[selDay]);
+    var okCard = '<article class="card okcard"><svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true"><circle cx="32" cy="32" r="29" fill="none" stroke="var(--gold,#d4a84b)" stroke-width="4"/><path d="M19 33l9 9 17-20" fill="none" stroke="var(--gold,#d4a84b)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+      '<h3>¡Rutina completa!</h3><p class="meta">' + done + ' series · ' + fmtMin(dayMinutes(weekDates(0)[selDay])) + ' · ~' + dkc + ' kcal' + (ss ? ' · ' + clock(ss.s) + ' → ' + clock(ss.e) : '') + '</p>' +
+      '<div class="grid2"><button class="ghost" data-a="recap">Ver resumen</button><button class="ghost" data-a="toggleList">' + (showList ? 'Ocultar rutina' : 'Editar rutina') + '</button></div></article>';
     var body = info.exs.length
-      ? '<article class="card sumcard"><div class="sumtop"><div><b>' + done + '/' + total + '</b> <span>series</span></div><div class="sumr">~' + mins + ' min · ' + info.exs.length + ' ejercicios</div></div>' +
+      ? (complete ? okCard + (showList ? rowsHTML(info.exs, canLog) : '')
+        : '<article class="card sumcard"><div class="sumtop"><div><b>' + done + '/' + total + '</b> <span>series</span></div><div class="sumr">~' + mins + ' min · ' + info.exs.length + ' ejercicios</div></div>' +
         '<div class="pbar"><i style="width:' + pct + '%"></i></div>' +
-        (sessTxt ? '<p class="meta">' + sessTxt + '</p>' : '') +
+        (sessTxt ? '<p class="meta">' + sessTxt + (dkc ? ' · ~' + dkc + ' kcal' : '') + '</p>' : '') +
         (canLog ? '<button class="wide" data-a="startRun">' + (done > 0 ? 'Continuar sesión' : 'Iniciar sesión') + '</button>' : '<p class="meta">Solo puedes registrar el día de hoy.</p>') + '</article>' +
-        rowsHTML(info.exs, canLog) +
+        rowsHTML(info.exs, canLog)) +
+        actsCardHTML(canLog) +
         '<details class="more"><summary>Calentamiento, extras y tiempo</summary>' + warmupBody() + extrasHTML(info) + (canLog ? timeCardHTML(canLog) : '') + '</details>' +
-        '<button class="wide ghost" data-a="finishDay" data-d="' + selDay + '"' + (canLog ? '' : ' disabled') + '>Terminar día</button>'
-      : restDayHTML();
+        (complete && !(ss && ss.fin) ? '' : '') + '<button class="wide ghost" data-a="finishDay" data-d="' + selDay + '"' + (canLog ? '' : ' disabled') + '>Terminar día</button>'
+      : restDayHTML() + actsCardHTML(canLog);
     view.innerHTML = '<section class="page"><nav class="dows">' + dows + '</nav>' +
       '<h2 class="title">' + esc(info.name) + '</h2>' +
       '<p class="sub">' + (info.groups.map(function (g) { return TW.MUSCLES[g]; }).join(' · ') || 'Sin entrenamiento programado') + '</p>' +
@@ -1209,6 +1279,7 @@
       '<div class="grid2"><label class="field">Peso (kg)<input type="number" step="0.1" id="bodyKg" value="' + lw + '"></label>' +
       '<label class="field">Cintura (cm, a la altura del ombligo)<input type="number" step="0.5" id="bodyWaist"></label>' +
       '<label class="field">Cuello (cm, opcional)<input type="number" step="0.5" id="bodyNeck"></label>' +
+      (S.profile && S.profile.sex === 'f' ? '<label class="field">Cadera (cm, parte más ancha)<input type="number" step="0.5" id="bodyHip"></label>' : '') +
       '<label class="field">Brazo (cm, opcional)<input type="number" step="0.5" id="bodyArm"></label>' +
       '<label class="field">% de grasa según foto o báscula (opcional)<input type="number" step="0.5" id="bodyBf"></label></div>' +
       '<button class="ghost" data-a="saveBody">Registrar medidas</button>' +
@@ -1260,10 +1331,10 @@
   }
   function saveBody() {
     var kg = Number($('#bodyKg').value), waist = Number($('#bodyWaist').value) || null;
-    var neck = Number($('#bodyNeck').value) || null, arm = Number($('#bodyArm').value) || null, bf = Number($('#bodyBf').value) || null;
+    var hipEl = $('#bodyHip'), hip = hipEl ? Number(hipEl.value) || null : null, neck = Number($('#bodyNeck').value) || null, arm = Number($('#bodyArm').value) || null, bf = Number($('#bodyBf').value) || null;
     if (!(kg > 0)) { toast('Ingresa un peso válido'); return; }
     var d = today(), e = { date: d, kg: kg, waist: waist };
-    if (neck) e.neck = neck; if (arm) e.arm = arm; if (bf) e.bf = bf;
+    if (hip) e.hip = hip; if (neck) e.neck = neck; if (arm) e.arm = arm; if (bf) e.bf = bf;
     S.body = S.body.filter(function (b) { return b.date !== d; });
     S.body.push(e);
     save(); renderProgress(); toast('Peso registrado');
@@ -1846,6 +1917,17 @@
     pickG: function (el, d) { pick.g = d.g; pick.p = 'all'; openPicker(); },
     pickP: function (el, d) { pick.p = d.p; openPicker(); },
     addPick: function (el, d) { var pdv = pd(); S.week[pdv].exs.push(d.ex); markExtra(d.ex); activate(d.ex); save(); closeSheet(); var m = TW.estMin(TW.getEx(S, d.ex)); if ((location.hash || '').indexOf('semana') >= 0) { wkSel = pdv; renderWeek(); } else renderToday(); toast('Añadido a ' + TW.DOW[pdv] + ' · +' + m + ' min'); },
+    actOpen: function (el, d) { actCtx = { t: d.t, min: d.t === 'caminata' ? 30 : 20, km: 0 }; renderActSheet(); },
+    actType: function (el, d) { actCtx.t = d.t; renderActSheet(); },
+    actStep: function (el, d) { var f = d.f, v = Number(d.d); actCtx[f] = Math.max(f === 'min' ? 5 : 0, Math.round((actCtx[f] + v) * 10) / 10); renderActSheet(); },
+    actSave: function () {
+      var k = today(); S.acts = S.acts || {}; (S.acts[k] = S.acts[k] || []).push({ t: actCtx.t, min: actCtx.min, km: actCtx.km || null });
+      touchSession(); save(); closeSheet(); renderToday();
+      toast(TW.ACT_TYPES[actCtx.t] + ' guardada · ~' + Math.round(TW.kcal(TW.actMet(actCtx.t, actCtx.km, actCtx.min), kgOn(k), actCtx.min)) + ' kcal');
+    },
+    actDel: function (el, d) { var k = today(); (S.acts[k] || []).splice(Number(d.i), 1); if (!S.acts[k].length) delete S.acts[k]; save(); renderToday(); },
+    recap: function () { openSheet(recapHTML(TW.dayInfo(S, S.week[selDay]))); },
+    toggleList: function () { showList = !showList; renderToday(); },
     addMin: function (el, d) { var k = today(); S.extraMin = S.extraMin || {}; S.extraMin[k] = (S.extraMin[k] || 0) + Number(d.m); touchSession(); save(); renderToday(); toast('+' + d.m + ' min registrados'); },
     delExPhoto: function (el, d) { if (S.exPhotos) delete S.exPhotos[d.ex]; save(); openInfo(d.ex); },
     startTraining: function () {

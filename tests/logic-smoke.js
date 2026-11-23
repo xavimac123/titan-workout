@@ -84,5 +84,16 @@ ok(an.toLose === 10 && an.focus.indexOf('abdomen') >= 0, 'análisis: peso a baja
 const ma = TW.ma7([{ date: 'a', kg: 80 }, { date: 'b', kg: 82 }]);
 ok(Math.abs(ma[1].v - 81) < 1e-9, 'promedio móvil de los registros');
 
+{ // calorías y composición femenina
+  const k = TW.kcal(TW.actMet('caminata', 3, 30), 70, 30);
+  ok(k > 150 && k < 175, 'kcal caminata 6 km/h 70 kg 30 min ~' + Math.round(k));
+  const r = TW.kcal(TW.actMet('correr', 5, 30), 70, 30);
+  ok(r > 300 && r < 380, 'kcal correr 10 km/h ~' + Math.round(r));
+  const f = TW.bodyFat({ height: 160, age: 33, sex: 'f' }, { kg: 65, waist: 80, neck: 31, hip: 100 });
+  ok(f.navy > 20 && f.navy < 45 && f.dm > 20 && f.dm < 45, 'grasa mujer plausible ' + f.navy.toFixed(1) + '/' + f.dm.toFixed(1));
+  const m = TW.bodyFat({ height: 174, age: 34, sex: 'm' }, { kg: 115, waist: 118, neck: 42.5 });
+  ok(m.pct > 30 && m.pct < 40, 'grasa hombre sin cambios ' + m.pct.toFixed(1));
+}
+
 console.log(fails ? '\n' + fails + ' fallos' : '\nTodas las pruebas pasaron');
 process.exit(fails ? 1 : 0);
