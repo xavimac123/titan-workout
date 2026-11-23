@@ -122,6 +122,18 @@
   }
 
   /* ---------- HOY ---------- */
+  /* Título con el nombre en inglés y el español en letra pequeña. */
+  function exTitle(e) {
+    return esc(TW.exName(e)) + (TW.EX_EN[e.id] ? ' <small class="es">' + esc(e.name) + '</small>' : '');
+  }
+  function ringHTML(pct) {
+    var r = 28, c = 2 * Math.PI * r;
+    return '<div class="ring"><svg width="72" height="72" viewBox="0 0 72 72" aria-hidden="true">' +
+      '<circle cx="36" cy="36" r="' + r + '" fill="none" stroke="#2a2a2e" stroke-width="7"/>' +
+      '<circle cx="36" cy="36" r="' + r + '" fill="none" stroke="var(--gold)" stroke-width="7" stroke-linecap="round" ' +
+      'stroke-dasharray="' + (c * pct / 100).toFixed(1) + ' ' + c.toFixed(1) + '" transform="rotate(-90 36 36)"/></svg>' +
+      '<b>' + pct + '%</b></div>';
+  }
   function renderToday() {
     var ti = todayIdx();
     if (selDay == null) selDay = ti;
@@ -135,7 +147,7 @@
         d + (i === ti ? '<i class="today-dot"></i>' : '') + '</button>';
     }).join('');
     var body = info.exs.length
-      ? '<div class="pbar"><i style="width:' + pct + '%"></i></div><p class="meta">' + done + '/' + total + ' series completadas' + (canLog ? '' : ' · solo puedes registrar el día de hoy') + '</p>' +
+      ? ringHTML(pct) + '<p class="meta">' + done + '/' + total + ' series completadas' + (canLog ? '' : ' · solo puedes registrar el día de hoy') + '</p>' +
         info.exs.map(function (e) { return exCard(e, canLog); }).join('') +
         '<button class="wide" data-a="finishDay" data-d="' + selDay + '"' + (canLog ? '' : ' disabled') + '>Terminar día</button>'
       : restDayHTML();
@@ -146,8 +158,8 @@
   }
   function warmupHTML() {
     return '<article class="card"><h3>Calentamiento (5–10 min)</h3><div class="grid2">' +
-      '<div><p class="lbl">En casa</p><ul class="plain">' + TW.WARMUP.casa.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul></div>' +
-      '<div><p class="lbl">Espacio abierto</p><ul class="plain">' + TW.WARMUP.abierto.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul></div>' +
+      '<div><p class="lbl">En casa</p>' + TW.WARMUP.casa.map(function (t) { return '<label class="check"><input type="checkbox"> ' + esc(t) + '</label>'; }).join('') + '</div>' +
+      '<div><p class="lbl">Espacio abierto</p>' + TW.WARMUP.abierto.map(function (t) { return '<label class="check"><input type="checkbox"> ' + esc(t) + '</label>'; }).join('') + '</div>' +
       '</div></article>';
   }
   function startLoadsHTML() {
@@ -192,7 +204,7 @@
     var needLoad = e.prog === 'carga' && !TW.loadsFor(S, e).length
       ? '<p class="warn">Configura las cargas de tu equipo en Ajustes.</p>' : '';
     return '<article class="card" data-ex="' + e.id + '">' +
-      '<div class="card-h"><div><h3>' + esc(e.name) + '</h3>' +
+      '<div class="card-h"><div><h3>' + exTitle(e) + '</h3><p class="how">' + esc(TW.exHow(e)) + '</p>' +
       (tgt ? '<small class="step">Paso ' + (tgt.step + 1) + '/' + tgt.total + ': ' + esc(tgt.name) + '</small>' : '') +
       '</div>' + TW.bodySVG(e.muscles, 'mini') + '</div>' +
       '<p class="note"><em>' + esc(e.note) + '</em></p>' +
@@ -209,7 +221,7 @@
   function cardioCard(e, canLog) {
     var L = getLog(today(), e.id), c = L && L.cardio;
     return '<article class="card cardio" data-ex="' + e.id + '">' +
-      '<div class="card-h"><div><h3>' + esc(e.name) + '</h3><small class="step">Duración objetivo: ' + e.minutes + ' min</small></div>' + TW.bodySVG(e.muscles, 'mini') + '</div>' +
+      '<div class="card-h"><div><h3>' + exTitle(e) + '</h3><small class="step">Duración objetivo: ' + e.minutes + ' min</small></div>' + TW.bodySVG(e.muscles, 'mini') + '</div>' +
       '<p class="note"><em>' + esc(e.note) + '</em></p>' +
       '<form class="grid2" data-cardio="' + e.id + '">' +
       '<label>Distancia (km)<input type="number" step="0.01" min="0" name="km" value="' + (c && c.km != null ? c.km : '') + '"' + (canLog ? '' : ' disabled') + '></label>' +
@@ -226,7 +238,7 @@
     var canLog = selDay === todayIdx();
     var L = getLog(today(), e.id);
     return '<article class="card flex" data-ex="' + e.id + '">' +
-      '<div class="card-h"><div><h3>' + esc(e.name) + '</h3><small class="step blue">Etapa ' + (st + 1) + '/4: ' + TW.STAGES[st] + '</small></div>' + TW.bodySVG(e.muscles, 'mini') + '</div>' +
+      '<div class="card-h"><div><h3>' + exTitle(e) + '</h3><small class="step blue">Etapa ' + (st + 1) + '/4: ' + TW.STAGES[st] + '</small></div>' + TW.bodySVG(e.muscles, 'mini') + '</div>' +
       '<p class="note"><em>' + esc(e.note) + '</em></p>' +
       e.positions.map(function (ps) {
         return '<div class="pos"><span>' + esc(ps.name) + '</span><button class="ghost" data-a="flexTimer" data-sec="' + ps.sec + '">▶ ' + ps.sec + ' s</button></div>';
@@ -534,8 +546,17 @@
       '<li>Expón los ojos a luz natural en la mañana y evita pantallas y cafeína las horas previas a dormir.</li>' +
       '<li>Ajusta la hora de dormir 15–30 min por semana hasta llegar a 7 h o más.</li>' +
       '</ul>' +
-      '<p class="lbl">Cuándo consultar a un médico</p><p class="meta">Con sueño corto y cansancio diurno, conviene revisar apnea del sueño. Consulta si roncas fuerte, notas pausas en la respiración mientras duermes o tienes somnolencia que afecta tu día. Como referencia, el cuestionario STOP-BANG marca alto riesgo desde 3 puntos, y uno de sus ítems es el cansancio diurno.</p>' +
+      '<p class="lbl">Cuándo consultar a un médico</p><p class="meta">Con sueño corto y cansancio diurno, conviene revisar apnea del sueño. Consulta si roncas fuerte, notas pausas en la respiración mientras duermes o tienes somnolencia que afecta tu día.</p>' +
+      '<p class="lbl">Cuestionario STOP-BANG (marca lo que aplique)</p><div class="checks">' +
+      [['snore', 'Ronquido fuerte'], ['tired', 'Cansancio o sueño durante el día'], ['observed', 'Te han visto dejar de respirar al dormir'], ['bp', 'Presión alta (tratada o diagnosticada)'], ['bmi', 'IMC mayor a 35'], ['age', 'Mayor de 50 años'], ['neck', 'Cuello mayor a 40 cm'], ['male', 'Hombre']].map(function (q) {
+        return '<label class="check"><input type="checkbox" data-group="stop" value="' + q[0] + '"> ' + q[1] + '</label>';
+      }).join('') + '</div><button class="ghost" data-a="stopBang">Calcular riesgo</button>' +
+      '<p class="meta">Un puntaje de 3 o más indica riesgo alto de apnea y amerita evaluación médica. Es un cuestionario de cribado, no un diagnóstico.</p>' +
       '</div>';
+  }
+  function stopBang() {
+    var n = view.querySelectorAll('input[data-group="stop"]:checked').length;
+    toast('STOP-BANG: ' + n + ' de 8' + (n >= 3 ? '. Riesgo alto: consulta médica para evaluar apnea del sueño.' : '. Riesgo bajo según este cribado.'));
   }
   function saveSleep() {
     var bed = $('#sleepBed').value, wake = $('#sleepWake').value, q = Number($('#sleepQ').value);
@@ -593,7 +614,7 @@
       '<button data-a="setStatus" data-ex="' + e.id + '" data-st="activo"' + (st === 'activo' ? ' disabled' : '') + '>Activar</button>' +
       '<button class="ghost" data-a="setStatus" data-ex="' + e.id + '" data-st="pausa"' + (st === 'pausa' ? ' disabled' : '') + '>Pausar</button>' +
       '<button class="ghost" data-a="setStatus" data-ex="' + e.id + '" data-st="descartado">Descartar</button>';
-    return '<article class="card lib"><div class="card-h"><div><h3>' + esc(e.name) + (e.custom ? ' <small>(propio)</small>' : '') + '</h3>' +
+    return '<article class="card lib"><div class="card-h"><div><h3>' + exTitle(e) + (e.custom ? ' <small>(propio)</small>' : '') + '</h3><p class="how">' + esc(TW.exHow(e)) + '</p>' +
       '<small class="step">' + TW.PATTERNS[e.pattern] + ' · ' + (e.muscles.map(function (m) { return TW.MUSCLES[m]; }).join(', ')) + '</small></div>' +
       '<span class="pill ' + st + '">' + label + '</span></div>' +
       '<p class="meta">Dificultad ' + e.diff + '/3 · ' + (e.equip.length ? 'Equipo: ' + e.equip.map(function (q) { return TW.EQUIPMENT[q]; }).join(', ') : 'Peso corporal') + '</p>' +
@@ -1044,6 +1065,7 @@
     savePhase: function (el, d) { savePhase(d.id); },
     saveBody: saveBody,
     saveSleep: saveSleep,
+    stopBang: stopBang,
     saveTest: saveTest,
     setStatus: function (el, d) { setStatus(d.ex, d.st); },
     detail: function (el, d) { openDetail(d.ex); },

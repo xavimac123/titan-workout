@@ -151,4 +151,13 @@ label.check input[type=checkbox] { width: 22px; height: 22px; min-height: 22px; 
 #restTime { font-family: var(--cond); font-size: 1.8rem; color: var(--gold); flex: 1; }
 .toast { position: fixed; top: calc(64px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 30; background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 16px; max-width: 90vw; box-shadow: 0 6px 20px rgba(0,0,0,.5); }
 
+/* Transición de pantalla (desvanecido) y anillo de progreso (ui de Design notes) */
+.page { animation: fadeIn .25s ease-out; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.ring { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
+.ring svg { flex: none; }
+.ring b { font-family: var(--cond); font-size: 1.3rem; color: var(--gold); }
+.how { margin: 2px 0 0; font-size: .82rem; color: var(--mut); line-height: 1.35; }
+.es { font-size: .7rem; color: var(--mut); font-weight: 400; }
+
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

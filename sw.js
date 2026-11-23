@@ -1,7 +1,7 @@
 /* Service worker: la app funciona sin conexión. Cambia CACHE al publicar cambios de archivos. */
-const CACHE = 'titan-workout-v6';
+const CACHE = 'titan-workout-v7';
 const ASSETS = ['./', './index.html', './styles.css', './manifest.webmanifest', './icon.svg',
-  './js/catalog.js', './js/db.js', './js/logic.js', './js/app.js'];
+  './js/catalog.js', './js/nombres.js', './js/db.js', './js/logic.js', './js/app.js'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
