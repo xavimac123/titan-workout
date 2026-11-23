@@ -180,6 +180,62 @@
       (ph ? '<button class="ghost" data-a="delExPhoto" data-ex="' + e.id + '">Quitar mi foto</button>' : '') +
       '<button class="wide ghost" data-a="closeSheet">Cerrar</button>');
   }
+
+  /* ---- Selector "Añadir ejercicio": glassbox con sugerencias por zona urgente ---- */
+  var pick = { g: null, p: 'all' };
+  var PICK_TARGET = { pecho: 10, espalda: 10, hombros: 8, biceps: 6, triceps: 6, cuadriceps: 10, isquiotibiales: 8, gluteos: 8, abdomen: 6, pantorrillas: 6 };
+  function urgency() {
+    var mw = muscleWeek();
+    return Object.keys(PICK_TARGET).map(function (k) {
+      var have = Math.max(mw.plan[k] || 0, mw.done[k] || 0), def = PICK_TARGET[k] - have;
+      return { k: k, have: have, target: PICK_TARGET[k], def: def, tier: def >= 5 ? 'u' : def >= 2.5 ? 'b' : 'ok' };
+    }).sort(function (a, b) { return b.def / b.target - a.def / a.target; });
+  }
+  function pickList(g) {
+    var level = TW.level(S), day = S.week[selDay] ? S.week[selDay].exs : [];
+    return TW.allEx(S).filter(function (e) {
+      if (day.indexOf(e.id) >= 0 || TW.status(S, e.id) === 'descartado') return false;
+      if (g === 'cardio') return e.type === 'cardio';
+      if (g === 'movilidad') return e.type === 'flex';
+      return e.type === 'fuerza' && e.muscles.indexOf(g) >= 0;
+    }).map(function (e) {
+      var why = !TW.hasEquip(S, e) ? ((e.equip || []).filter(function (q) { return !(S.equipment[q] && S.equipment[q].on); }).map(function (q) { return String(TW.EQUIPMENT[q]).split(' (')[0]; }).join(', ') || 'Bajo impacto: pausado') : (e.diff > level ? 'Nivel avanzado' : '');
+      return { e: e, why: why, main: e.muscles[0] === g };
+    }).sort(function (a, b) {
+      return (a.why ? 1 : 0) - (b.why ? 1 : 0) || (b.main ? 1 : 0) - (a.main ? 1 : 0) || (a.e.diff || 1) - (b.e.diff || 1);
+    });
+  }
+  function openPicker() {
+    var u = urgency();
+    if (!pick.g) pick.g = u[0].k;
+    var tabs = u.map(function (x) {
+      return '<button class="gchip ' + x.tier + (x.k === pick.g ? ' sel' : '') + '" data-a="pickG" data-g="' + x.k + '"><b>' + TW.MUSCLES[x.k] + '</b>' +
+        '<small>' + (x.tier === 'u' ? 'Urgente' : x.tier === 'b' ? 'Bajo' : 'Cubierto') + ' · ' + Math.round(x.have * 10) / 10 + '/' + x.target + '</small></button>';
+    }).join('') + ['cardio', 'movilidad'].map(function (k) {
+      return '<button class="gchip' + (k === pick.g ? ' sel' : '') + '" data-a="pickG" data-g="' + k + '"><b>' + TW.MUSCLES[k] + '</b><small>Extra</small></button>';
+    }).join('');
+    var all = pickList(pick.g);
+    var pats = []; all.forEach(function (r) { if (pats.indexOf(r.e.pattern) < 0) pats.push(r.e.pattern); });
+    if (pick.p !== 'all' && pats.indexOf(pick.p) < 0) pick.p = 'all';
+    var ptabs = pats.length > 1 ? '<div class="pchips"><button class="pchip' + (pick.p === 'all' ? ' sel' : '') + '" data-a="pickP" data-p="all">Todos</button>' +
+      pats.map(function (p) { return '<button class="pchip' + (pick.p === p ? ' sel' : '') + '" data-a="pickP" data-p="' + p + '">' + TW.PATTERNS[p] + '</button>'; }).join('') + '</div>' : '';
+    var rows = all.filter(function (r) { return pick.p === 'all' || r.e.pattern === pick.p; }).map(function (r) {
+      var e = r.e, eq = (e.equip || []).map(function (k) { return TW.equipIcon(k, 18); }).join('') || '<span class="meta">Sin equipo</span>';
+      return '<div class="prow' + (r.why ? ' lock' : '') + '"><div class="pmain"><b>' + esc(TW.exName(e)) + '</b>' +
+        '<small class="es">' + esc(TW.PATTERNS[e.pattern]) + (r.main ? '' : ' · apoyo') + ' · ' + 'Nivel ' + (e.diff || 1) + '/3 · ~' + TW.estMin(e) + ' min</small>' +
+        '<span class="peq">' + eq + (r.why ? '<em>Requiere: ' + esc(r.why) + '</em>' : '') + '</span></div>' +
+        '<div class="pact"><button class="ghost sm" data-a="info" data-ex="' + e.id + '" aria-label="Información">i</button>' +
+        (r.why ? '' : '<button class="sm" data-a="addPick" data-ex="' + e.id + '">Añadir</button>') + '</div></div>';
+    }).join('') || '<p class="meta">No hay ejercicios en esta zona con tu equipo actual.</p>';
+    var top = u.filter(function (x) { return x.tier !== 'ok'; }).slice(0, 3).map(function (x) { return TW.MUSCLES[x.k]; });
+    $('#sheet').classList.add('glass');
+    openSheet('<h3>Añadir ejercicio</h3>' +
+      '<p class="meta">' + (top.length ? 'Zonas que más necesitan trabajo esta semana: <b>' + top.join(', ') + '</b>.' : 'Tus zonas principales ya están cubiertas esta semana.') +
+      ' Series efectivas por semana vs. meta (≈10 en grupos grandes).</p>' +
+      '<div class="gchips">' + tabs + '</div>' + ptabs + '<div class="plist">' + rows + '</div>' +
+      '<button class="wide ghost" data-a="closeSheet">Cerrar</button>');
+    var sb = $('#sheetBody'); if (sb) sb.scrollTop = 0;
+  }
   function myEquipHTML() {
     var keys = Object.keys(TW.EQUIPMENT);
     return '<div class="card"><h3>Mi equipo</h3><p class="meta">Toca un equipo para activarlo o desactivarlo.</p><div class="eqgrid">' +
@@ -219,7 +275,7 @@
     clearTimeout(toastTo); toastTo = setTimeout(function () { t.classList.add('hidden'); }, 2400);
   }
   function openSheet(html) { $('#sheetBody').innerHTML = html; $('#sheet').classList.remove('hidden'); }
-  function closeSheet() { $('#sheet').classList.add('hidden'); }
+  function closeSheet() { $('#sheet').classList.add('hidden'); $('#sheet').classList.remove('glass'); }
   function collect(root) {
     var out = {};
     root.querySelectorAll('input[name],select[name],textarea[name],input[data-group]').forEach(function (el) {
@@ -428,6 +484,7 @@
     var body = info.exs.length
       ? overviewHTML(info) + ringHTML(pct) + '<p class="meta">' + done + '/' + total + ' series completadas' + (canLog ? '' : ' · solo puedes registrar el día de hoy') + '</p>' +
         rowsHTML(info.exs, canLog) + extrasHTML(info) +
+        '<button class="wide ghost" data-a="openPicker">+ Añadir ejercicio</button>' +
         '<button class="wide" data-a="finishDay" data-d="' + selDay + '"' + (canLog ? '' : ' disabled') + '>Terminar día</button>'
       : restDayHTML();
     view.innerHTML = '<section class="page"><nav class="dows">' + dows + '</nav>' +
@@ -502,7 +559,7 @@
   function restDayHTML() {
     var flex = S.status ? TW.allEx(S).filter(function (e) { return e.type === 'flex' && TW.status(S, e.id) === 'activo'; }) : [];
     return '<article class="card"><h3>Descanso activo</h3><p class="note"><em>Recuperación sin carga: el cuerpo se adapta al descanso.</em></p>' +
-      '<ul class="plain"><li>Caminata suave de 20–30 min.</li><li>Hidratación y sueño de calidad.</li></ul>' +
+      '<ul class="plain"><li>Caminata suave de 20–30 min.</li><li>Hidratación y sueño de calidad.</li></ul><button class="wide ghost" data-a="openPicker">+ Añadir ejercicio</button>' +
       (flex.length ? '<p class="lbl">Movilidad activa</p>' + flex.map(function (e) {
         return '<div class="pos"><span>' + esc(e.name) + '</span><button data-a="flexTimer" data-sec="' + e.positions[0].sec + '">▶ ' + e.positions[0].sec + ' s</button></div>';
       }).join('') : '<p class="meta">Activa ejercicios de flexibilidad en Biblioteca para verlos aquí.</p>') + '</article>';
@@ -1408,6 +1465,10 @@
     saveSleep: saveSleep,
     info: function (el, d) { openInfo(d.ex); },
     addExtra: function (el, d) { S.week[selDay].exs.push(d.ex); activate(d.ex); save(); renderToday(); toast('Ejercicio añadido a hoy'); },
+    openPicker: function () { pick = { g: null, p: 'all' }; openPicker(); },
+    pickG: function (el, d) { pick.g = d.g; pick.p = 'all'; openPicker(); },
+    pickP: function (el, d) { pick.p = d.p; openPicker(); },
+    addPick: function (el, d) { S.week[selDay].exs.push(d.ex); activate(d.ex); save(); closeSheet(); renderToday(); toast('Ejercicio añadido a hoy'); },
     delExPhoto: function (el, d) { if (S.exPhotos) delete S.exPhotos[d.ex]; save(); openInfo(d.ex); },
     startTraining: function () {
       var d = today(); S.sess = S.sess || {};
