@@ -336,7 +336,7 @@ details.more{margin:10px 0}details.more>summary{cursor:pointer;color:var(--muted
 .runanim{max-width:260px;margin:6px auto}.runanim svg{width:100%;height:auto}.runfig.small{max-width:120px;margin:0 auto}
 .tmr{position:fixed;inset:0;z-index:80;background:rgba(10,11,14,.97);display:flex;align-items:center;justify-content:center}
 .tmr-body{text-align:center;width:min(92vw,360px)}
-.ring{position:relative;width:min(80vw,280px);margin:12px auto}.ring svg{width:100%}
+
 .rbg{fill:none;stroke:rgba(255,255,255,.1);stroke-width:12}.rfg{fill:none;stroke:var(--gold,#d4a84b);stroke-width:12;stroke-linecap:round;transition:stroke-dashoffset .25s linear}
 .rc{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}.rc b{font-size:3.4rem;font-variant-numeric:tabular-nums}.rc span{color:var(--muted,#9aa)}
 .tmrbtns{display:flex;gap:10px;margin:14px 0}.tmrbtns button{flex:1;padding:14px;border-radius:12px}
@@ -346,3 +346,42 @@ details.more{margin:10px 0}details.more>summary{cursor:pointer;color:var(--muted
 .okcard{text-align:center}.okcard svg{display:block;margin:0 auto 6px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .hist li button.lnk{flex:none}
 .xdel{background:none !important;border:0 !important;color:var(--muted,#9aa) !important;padding:4px 8px !important;min-width:0 !important;width:auto !important;height:auto !important;font-size:1rem}
+
+/* ---- v26: Inicio renovado, gráficos y transiciones ---- */
+.tring{position:relative;width:min(80vw,280px);margin:12px auto}.tring svg{width:100%}.tring .rc{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.tring .rbg{fill:none;stroke:rgba(255,255,255,.1);stroke-width:12}
+.tring .rfg{fill:none;stroke:var(--gold,#d4a84b);stroke-width:12;stroke-linecap:round;transition:stroke-dashoffset .25s linear}
+.tring .rc b{font-size:3.4rem;font-variant-numeric:tabular-nums}.tring .rc span{color:var(--muted,#9aa)}
+.ring{position:relative;display:block;width:112px;height:112px;margin:0;flex:none}
+.ring svg{width:100%;height:100%;display:block}
+.ring b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--cond);font-size:2rem;color:var(--gold);line-height:1}
+.ring b small{font-size:.9rem;margin:6px 0 0 2px;opacity:.8}
+.hero{display:grid;grid-template-columns:112px 1fr;gap:16px;align-items:center;background:linear-gradient(145deg,#1d1c22 0%,#17161b 60%,#1f1a12 100%);border-color:rgba(212,168,75,.25);position:relative;overflow:hidden}
+.hero::after{content:"";position:absolute;right:-40px;top:-40px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(212,168,75,.18),transparent 70%);pointer-events:none}
+.hero-r{min-width:0}.hero .big{font-size:2.6rem;line-height:1;margin:2px 0 4px}.hero .big span{font-size:1.5rem;color:var(--muted,#9aa)}.hero .big small{font-size:.9rem;color:var(--muted,#9aa);font-family:system-ui,sans-serif;text-transform:none}
+.hero .hoy{margin:0 0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hchips{display:flex;gap:6px;flex-wrap:wrap}.hchips .pill{font-size:.75rem;padding:4px 9px;background:rgba(255,255,255,.07);border-radius:99px}
+.hero .wide{grid-column:1/-1;margin-top:6px}
+.stats3 div{background:linear-gradient(180deg,var(--card2),#1c1c21)}
+.pbar{height:8px;border-radius:99px}.pbar i{border-radius:99px;background:linear-gradient(90deg,#c9922e,#f1cf7a)}
+.wkbar{border-radius:8px;height:84px}.wkbar i{border-radius:4px 4px 0 0;background:linear-gradient(180deg,#f1cf7a,#c9922e)}.wkbar i.x{background:linear-gradient(180deg,#ff9a4a,#ff7a18)}
+.wkcol.today b{color:var(--gold)}.wkcol.today .wkbar{box-shadow:0 0 0 1.5px rgba(212,168,75,.55)}
+.card h3{letter-spacing:.04em}
+/* movimiento */
+@keyframes ringin{from{stroke-dashoffset:var(--c)}}
+@keyframes grow{from{transform:scaleY(0)}}
+@keyframes growx{from{transform:scaleX(0)}}
+@keyframes rise2{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.ring .rg{animation:ringin 1s cubic-bezier(.2,.8,.2,1) .15s backwards}
+.wkbar i{transform-origin:bottom;animation:grow .7s cubic-bezier(.2,.8,.2,1) .25s backwards}
+.pbar i{transform-origin:left;animation:growx .8s cubic-bezier(.2,.8,.2,1) .25s backwards}
+.page>.card,.page>.row{animation:rise2 .45s cubic-bezier(.2,.8,.2,1) backwards}
+.page>:nth-child(2){animation-delay:.02s}.page>:nth-child(3){animation-delay:.07s}.page>:nth-child(4){animation-delay:.12s}.page>:nth-child(5){animation-delay:.17s}.page>:nth-child(6){animation-delay:.22s}.page>:nth-child(n+7){animation-delay:.27s}
+button,.chip,.set,.xmain{transition:transform .12s ease,background-color .2s ease,opacity .2s ease}
+button:active:not(:disabled),.xmain:active{transform:scale(.97)}
+.sheet-body{animation:sheetup .28s cubic-bezier(.2,.8,.2,1)}.pop-body{animation:sheetup .25s cubic-bezier(.2,.8,.2,1)}
+@keyframes sheetup{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+.tmr{animation:fadeIn .25s ease-out}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none !important;transition:none !important}}
+@media (max-width:360px){.hero{grid-template-columns:92px 1fr}.ring{width:92px;height:92px}.hero .big{font-size:2.1rem}}
+nav button,.tabs button{font-size:.78rem;letter-spacing:0;padding-left:2px;padding-right:2px}

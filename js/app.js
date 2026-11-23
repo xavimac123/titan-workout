@@ -557,7 +557,7 @@
     clearInterval(tmrIv);
     tmr = { total: sec, label: label, ctx: ctx || null, phase: 'prep', end: Date.now() + 5000, paused: false, left: 0 };
     var C = (2 * Math.PI * 90).toFixed(1);
-    $('#tmrBody').innerHTML = '<p class="lbl">' + esc(label) + '</p><div class="ring"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="90" class="rbg"/>' +
+    $('#tmrBody').innerHTML = '<p class="lbl">' + esc(label) + '</p><div class="tring"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="90" class="rbg"/>' +
       '<circle id="tmrRing" cx="100" cy="100" r="90" class="rfg" stroke-dasharray="' + C + '" stroke-dashoffset="0" transform="rotate(-90 100 100)"/></svg>' +
       '<div class="rc"><b id="tmrNum">5</b><span id="tmrPhase">Prepárate</span></div></div>' +
       '<div class="tmrbtns"><button class="ghost" data-a="tmrPause" id="tmrPauseBtn">Pausa</button><button data-a="tmrDone">' + (ctx ? 'Terminar y guardar' : 'Terminar') + '</button></div>' +
@@ -713,9 +713,10 @@
     }).join('');
     var diff = total - last, planTot = days.reduce(function (a, d) { return a + d.pm; }, 0), xTot = days.reduce(function (a, d) { return a + d.x; }, 0);
     view.innerHTML = '<section class="page"><h2 class="title">Inicio</h2>' +
-      '<article class="card hero"><div class="hero-l">' + ringHTML(planned ? Math.round(done / planned * 100) : 0) +
-      '</div><div class="hero-r"><p class="lbl">Esta semana</p><p class="big">' + done + '/' + planned + ' <small>días</small></p>' +
-      '<p class="meta">Hoy: ' + esc(info.name) + '</p></div>' +
+      '<article class="card hero"><div class="hero-l">' + ringHTML(planned ? Math.round(done / planned * 100) : 0) + '</div>' +
+      '<div class="hero-r"><p class="lbl">Esta semana</p><p class="big">' + done + '<span>/' + planned + '</span> <small>días</small></p>' +
+      '<p class="meta hoy">Hoy · ' + esc(info.name) + '</p>' +
+      '<div class="chips2 hchips"><span class="pill">⏱ ' + fmtMin(dayMinutes(today())) + '</span><span class="pill">🔥 ~' + dayKcal(today()) + ' kcal</span></div></div>' +
       '<button class="wide" data-a="startTraining">' + cta + '</button></article>' +
       '<article class="card"><h3>Peso</h3><div class="stats3">' +
       '<div><small>Inicial</small><b>' + start + '</b></div><div><small>Actual</small><b>' + cur + '</b></div><div><small>Meta</small><b>' + (tgt || '—') + '</b></div></div>' +
@@ -794,12 +795,13 @@
     return esc(TW.exName(e)) + (TW.EX_EN[e.id] ? ' <small class="es">' + esc(e.name) + '</small>' : '');
   }
   function ringHTML(pct) {
-    var r = 28, c = 2 * Math.PI * r;
-    return '<div class="ring"><svg width="72" height="72" viewBox="0 0 72 72" aria-hidden="true">' +
-      '<circle cx="36" cy="36" r="' + r + '" fill="none" stroke="#2a2a2e" stroke-width="7"/>' +
-      '<circle cx="36" cy="36" r="' + r + '" fill="none" stroke="var(--gold)" stroke-width="7" stroke-linecap="round" ' +
-      'stroke-dasharray="' + (c * pct / 100).toFixed(1) + ' ' + c.toFixed(1) + '" transform="rotate(-90 36 36)"/></svg>' +
-      '<b>' + pct + '%</b></div>';
+    var r = 46, c = 2 * Math.PI * r, off = c * (1 - pct / 100);
+    return '<div class="ring"><svg viewBox="0 0 110 110" aria-hidden="true">' +
+      '<circle cx="55" cy="55" r="' + r + '" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="9"/>' +
+      '<circle class="rg" cx="55" cy="55" r="' + r + '" fill="none" stroke="url(#gold)" stroke-width="9" stroke-linecap="round" ' +
+      'stroke-dasharray="' + c.toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '" style="--c:' + c.toFixed(1) + '" transform="rotate(-90 55 55)"/>' +
+      '<defs><linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f1cf7a"/><stop offset="1" stop-color="#c9922e"/></linearGradient></defs></svg>' +
+      '<b>' + pct + '<small>%</small></b></div>';
   }
   function renderToday() {
     if (run) { renderRun(); return; }
