@@ -178,7 +178,8 @@
   }
 
   /* ---- Selector "Añadir ejercicio": glassbox con sugerencias por zona urgente ---- */
-  var pick = { g: null, p: 'all' };
+  var pick = { g: null, p: 'all' }, pickDay = null;
+  function pd() { return pickDay != null ? pickDay : selDay; }
   var PICK_TARGET = { pecho: 10, espalda: 10, hombros: 8, biceps: 6, triceps: 6, cuadriceps: 10, isquiotibiales: 8, gluteos: 8, abdomen: 6, pantorrillas: 6 };
   function urgency() {
     var mw = muscleWeek();
@@ -188,7 +189,7 @@
     }).sort(function (a, b) { return b.def / b.target - a.def / a.target; });
   }
   function pickList(g) {
-    var level = TW.level(S), day = S.week[selDay] ? S.week[selDay].exs : [];
+    var level = TW.level(S), day = S.week[pd()] ? S.week[pd()].exs : [];
     return TW.allEx(S).filter(function (e) {
       if (day.indexOf(e.id) >= 0 || TW.status(S, e.id) === 'descartado') return false;
       if (g === 'cardio') return e.type === 'cardio';
@@ -202,34 +203,41 @@
     });
   }
   function openPicker() {
-    var u = urgency();
-    if (!pick.g) pick.g = u[0].k;
-    var tabs = u.map(function (x) {
-      return '<button class="gchip ' + x.tier + (x.k === pick.g ? ' sel' : '') + '" data-a="pickG" data-g="' + x.k + '"><b>' + TW.MUSCLES[x.k] + '</b>' +
-        '<small>' + (x.tier === 'u' ? 'Urgente' : x.tier === 'b' ? 'Bajo' : 'Cubierto') + ' · ' + Math.round(x.have * 10) / 10 + '/' + x.target + '</small></button>';
-    }).join('') + ['cardio', 'movilidad'].map(function (k) {
-      return '<button class="gchip' + (k === pick.g ? ' sel' : '') + '" data-a="pickG" data-g="' + k + '"><b>' + TW.MUSCLES[k] + '</b><small>Extra</small></button>';
-    }).join('');
+    var u = urgency(), heat = {}, dayName = TW.DOW[pd()];
+    u.forEach(function (x) { heat[x.k] = TW.clamp(x.def / x.target, 0.18, 1); });
+    $('#sheet').classList.add('glass');
+    var head = '<div class="phead"><h3>Añadir a ' + dayName + '</h3><button class="ghost sm" data-a="closeSheet" aria-label="Cerrar">✕</button></div>';
+    if (!pick.g) {
+      var top = u.filter(function (x) { return x.tier !== 'ok'; }).slice(0, 3);
+      openSheet(head + '<p class="meta">Toca un grupo muscular en el mapa. Más brillante = más urgente esta semana.</p>' +
+        '<div class="pmap">' + TW.bodySVG([], 'big', (S.profile && S.profile.sex) || 'm', heat, true) + '</div>' +
+        (top.length ? '<p class="lbl">Más urgentes</p><div class="gchips wrap">' + top.map(function (x) {
+          return '<button class="gchip ' + x.tier + '" data-a="pickG" data-g="' + x.k + '"><b>' + TW.MUSCLES[x.k] + '</b><small>' + (x.tier === 'u' ? 'Urgente' : 'Bajo') + ' · ' + Math.round(x.have * 10) / 10 + '/' + x.target + '</small></button>';
+        }).join('') + '</div>' : '<p class="meta">Tus zonas principales ya están cubiertas esta semana.</p>') +
+        '<p class="lbl">Otros</p><div class="gchips wrap"><button class="gchip" data-a="pickG" data-g="cardio"><b>Cardio</b></button><button class="gchip" data-a="pickG" data-g="movilidad"><b>Movilidad</b></button></div>');
+      return;
+    }
+    var info = u.filter(function (x) { return x.k === pick.g; })[0];
     var all = pickList(pick.g);
     var pats = []; all.forEach(function (r) { if (pats.indexOf(r.e.pattern) < 0) pats.push(r.e.pattern); });
     if (pick.p !== 'all' && pats.indexOf(pick.p) < 0) pick.p = 'all';
     var ptabs = pats.length > 1 ? '<div class="pchips"><button class="pchip' + (pick.p === 'all' ? ' sel' : '') + '" data-a="pickP" data-p="all">Todos</button>' +
-      pats.map(function (p) { return '<button class="pchip' + (pick.p === p ? ' sel' : '') + '" data-a="pickP" data-p="' + p + '">' + TW.PATTERNS[p] + '</button>'; }).join('') + '</div>' : '';
-    var rows = all.filter(function (r) { return pick.p === 'all' || r.e.pattern === pick.p; }).map(function (r) {
+      pats.map(function (q) { return '<button class="pchip' + (pick.p === q ? ' sel' : '') + '" data-a="pickP" data-p="' + q + '">' + TW.PATTERNS[q] + '</button>'; }).join('') + '</div>' : '';
+    var filt = all.filter(function (r) { return pick.p === 'all' || r.e.pattern === pick.p; });
+    var rowOf = function (r) {
       var e = r.e, eq = (e.equip || []).map(function (k) { return TW.equipIcon(k, 18); }).join('') || '<span class="meta">Sin equipo</span>';
       return '<div class="prow' + (r.why ? ' lock' : '') + '"><div class="pmain"><b>' + esc(TW.exName(e)) + '</b>' +
-        '<small class="es">' + esc(TW.PATTERNS[e.pattern]) + (r.main ? '' : ' · apoyo') + ' · ' + 'Nivel ' + (e.diff || 1) + '/3 · ~' + TW.estMin(e) + ' min</small>' +
+        '<small class="es">' + esc(TW.PATTERNS[e.pattern]) + (r.main ? '' : ' · apoyo') + ' · Nivel ' + (e.diff || 1) + '/3 · ~' + TW.estMin(e) + ' min</small>' +
         '<span class="peq">' + eq + (r.why ? '<em>Requiere: ' + esc(r.why) + '</em>' : '') + '</span></div>' +
         '<div class="pact"><button class="ghost sm" data-a="info" data-ex="' + e.id + '" aria-label="Información">i</button>' +
         (r.why ? '' : '<button class="sm" data-a="addPick" data-ex="' + e.id + '">Añadir</button>') + '</div></div>';
-    }).join('') || '<p class="meta">No hay ejercicios en esta zona con tu equipo actual.</p>';
-    var top = u.filter(function (x) { return x.tier !== 'ok'; }).slice(0, 3).map(function (x) { return TW.MUSCLES[x.k]; });
-    $('#sheet').classList.add('glass');
-    openSheet('<h3>Añadir ejercicio</h3>' +
-      '<p class="meta">' + (top.length ? 'Zonas que más necesitan trabajo esta semana: <b>' + top.join(', ') + '</b>.' : 'Tus zonas principales ya están cubiertas esta semana.') +
-      ' Series efectivas por semana vs. meta (≈10 en grupos grandes).</p>' +
-      '<div class="gchips">' + tabs + '</div>' + ptabs + '<div class="plist">' + rows + '</div>' +
-      '<button class="wide ghost" data-a="closeSheet">Cerrar</button>');
+    };
+    var okR = filt.filter(function (r) { return !r.why; }).map(rowOf).join(''), lockR = filt.filter(function (r) { return r.why; });
+    var rows = (okR || '<p class="meta">No hay ejercicios disponibles en esta zona con tu equipo y nivel actuales.</p>') +
+      (lockR.length ? '<details class="lockbox"><summary>' + lockR.length + ' que requieren otro equipo o nivel</summary>' + lockR.map(rowOf).join('') + '</details>' : '');
+    openSheet(head + '<button class="linkback" data-a="pickBack">← Mapa muscular</button>' +
+      '<h4 class="pgroup">' + TW.MUSCLES[pick.g] + (info ? ' <small class="t' + info.tier + '">' + (info.tier === 'u' ? 'Urgente' : info.tier === 'b' ? 'Bajo' : 'Cubierto') + ' · ' + Math.round(info.have * 10) / 10 + '/' + info.target + ' series</small>' : '') + '</h4>' +
+      '<p class="meta">Se añade a ' + dayName + ' con el tiempo estimado de cada ejercicio.</p>' + ptabs + '<div class="plist enter">' + rows + '</div>');
     var sb = $('#sheetBody'); if (sb) sb.scrollTop = 0;
   }
   function myEquipHTML() {
@@ -321,7 +329,7 @@
     return d.exs.reduce(function (a, id) { var e = TW.getEx(S, id); return a + (e && !isExtra(date, id) ? estMin(e) : 0); }, 0);
   }
   function markExtra(id) {
-    var date = weekDates(0)[selDay]; S.extras = S.extras || {};
+    var date = weekDates(0)[pd()]; S.extras = S.extras || {};
     (S.extras[date] = S.extras[date] || []).push(id);
   }
   function timeCardHTML(canLog) {
@@ -705,20 +713,47 @@
   }
 
   /* ---------- SEMANA ---------- */
+  var wkSel = null;
+  function dayPanelHTML(i) {
+    var d = S.week[i], inf = TW.dayInfo(S, d), ti = todayIdx(), date = weekDates(0)[i];
+    var mins = inf.exs.reduce(function (a, e) { return a + estMin(e); }, 0);
+    var head = '<div class="dphead"><div><small>' + TW.DOW_FULL[i] + (i === ti ? ' · hoy' : '') + '</small><h3>' + esc(inf.name) + '</h3></div>' +
+      (inf.exs.length ? '<div class="chips2"><span class="pill">~' + mins + ' min</span><span class="pill">' + inf.exs.length + ' ej.</span></div>' : '') + '</div>';
+    if (!inf.exs.length) {
+      return head + '<div class="restfig"><p class="meta">Día de recuperación: caminata suave, movilidad e hidratación. Si quieres, suma un ejercicio.</p></div>' +
+        '<div class="grid2"><button data-a="openPicker" data-d="' + i + '">+ Añadir ejercicio</button><button class="ghost" data-a="editDay" data-d="' + i + '">Editar día</button></div>';
+    }
+    var rows = orderedExs(inf.exs).map(function (e, k) {
+      return '<div class="wrow"><span class="xn">' + (k + 1) + '</span><span class="xt"><b>' + esc(TW.exName(e)) + (isExtra(date, e.id) ? ' <span class="pill ex">Extra</span>' : '') + '</b>' +
+        '<small>' + esc(muscleNames(e)) + '</small></span><span class="xm">' + exSub(e) + '<small>~' + estMin(e) + ' min</small></span>' +
+        '<button class="ghost sm" data-a="rmEx" data-ex="' + e.id + '" aria-label="Quitar">✕</button></div>';
+    }).join('');
+    return head + '<div class="runfig">' + bsvg(inf.groups, 'big') + '</div>' + '<div class="wlist">' + rows + '</div>' +
+      '<div class="grid2"><button data-a="openPicker" data-d="' + i + '">+ Añadir</button><button class="ghost" data-a="editDay" data-d="' + i + '">Editar día</button></div>' +
+      (i === ti ? '<button class="wide ghost" data-a="goDay" data-d="' + i + '">Entrenar hoy →</button>' : '');
+  }
+  function selectWeekDay(i) {
+    wkSel = i;
+    document.querySelectorAll('.wkt').forEach(function (t) { t.classList.toggle('sel', Number(t.dataset.d) === i); });
+    var pn = $('#wkPanel'); if (!pn) return;
+    pn.classList.remove('enter'); pn.innerHTML = dayPanelHTML(i); void pn.offsetWidth; pn.classList.add('enter');
+  }
   function renderWeek() {
     var ti = todayIdx(), v = TW.validateWeek(S, S.week);
-    view.innerHTML = '<section class="page"><h2 class="title">Semana</h2>' +
-      '<div class="row"><button class="ghost" data-a="suggest">Aplicar sugerencia</button></div>' +
-      warnHTML(v.block, 'err') + warnHTML(v.warn) +
-      S.week.map(function (d, i) {
-        var inf = TW.dayInfo(S, d);
-        return '<article class="card day' + (i === ti ? ' today' : '') + '">' +
-          '<div class="card-h"><div><small>' + TW.DOW[i] + (i === ti ? ' · hoy' : '') + '</small><h3>' + esc(inf.name) + '</h3></div>' +
-          '<span class="tag">' + esc(inf.type) + '</span></div>' +
-          '<p class="sub">' + (inf.groups.map(function (g) { return TW.MUSCLES[g]; }).join(' · ') || 'Caminata y movilidad') + '</p>' +
-          '<p class="meta">' + (inf.exs.map(function (e) { return esc(e.name); }).join(', ') || 'Sin ejercicios') + '</p>' +
-          '<button class="ghost" data-a="editDay" data-d="' + i + '">Editar día</button></article>';
-      }).join('') + '</section>';
+    if (wkSel == null) wkSel = ti;
+    var tiles = S.week.map(function (d, i) {
+      var inf = TW.dayInfo(S, d), m = inf.exs.reduce(function (a, e) { return a + estMin(e); }, 0);
+      return '<button class="wkt' + (i === wkSel ? ' sel' : '') + (inf.exs.length ? '' : ' off') + (i === ti ? ' today' : '') + '" data-a="wkSel" data-d="' + i + '" aria-label="' + TW.DOW_FULL[i] + '">' +
+        '<b>' + TW.DOW[i] + '</b>' + bsvg(inf.groups, 'mini') + '<small>' + (inf.exs.length ? m + "'" : '—') + '</small></button>';
+    }).join('');
+    var nw = v.block.length + v.warn.length;
+    var total = S.week.reduce(function (a, d) { return a + TW.dayInfo(S, d).exs.reduce(function (x, e) { return x + estMin(e); }, 0); }, 0);
+    var days = S.week.filter(function (d) { return d.exs.length; }).length;
+    view.innerHTML = '<section class="page"><div class="wkhead"><div><h2 class="title">Semana</h2><p class="sub">' + days + ' días · ~' + total + ' min</p></div>' +
+      '<button class="ghost sm" data-a="suggest">Sugerir semana</button></div>' +
+      '<div class="wktiles">' + tiles + '</div>' +
+      (nw ? '<details class="warnbox"><summary>⚠ ' + nw + ' aviso' + (nw > 1 ? 's' : '') + '</summary>' + warnHTML(v.block, 'err') + warnHTML(v.warn) + '</details>' : '') +
+      '<article class="card dpanel enter" id="wkPanel">' + dayPanelHTML(wkSel) + '</article></section>';
   }
   function openDayEditor(i) {
     var day = S.week[i];
@@ -1473,7 +1508,7 @@
     flexDone: function (el, d) { flexDone(d.ex); },
     skipTimer: skipTimer,
     suggest: applySuggestion,
-    editDay: function (el, d) { openDayEditor(Number(d.d)); },
+    editDay: function (el, d) { wkSel = Number(d.d); openDayEditor(Number(d.d)); },
     saveDay: function (el, d) { saveDay(Number(d.d)); },
     editPhase: function (el, d) { openPhaseForm(d.id); },
     savePhase: function (el, d) { savePhase(d.id); },
@@ -1481,10 +1516,14 @@
     saveSleep: saveSleep,
     info: function (el, d) { openInfo(d.ex); },
 
-    openPicker: function () { pick = { g: null, p: 'all' }; openPicker(); },
+    openPicker: function (el, d) { pickDay = d.d != null ? Number(d.d) : null; pick = { g: null, p: 'all' }; openPicker(); },
+    pickBack: function () { pick = { g: null, p: 'all' }; openPicker(); },
+    wkSel: function (el, d) { selectWeekDay(Number(d.d)); },
+    goDay: function (el, d) { selDay = Number(d.d); run = null; location.hash = '#hoy'; },
+    rmEx: function (el, d) { var day = S.week[wkSel]; day.exs = day.exs.filter(function (x) { return x !== d.ex; }); var dt = weekDates(0)[wkSel]; if (S.extras && S.extras[dt]) S.extras[dt] = S.extras[dt].filter(function (x) { return x !== d.ex; }); save(); renderWeek(); toast('Ejercicio quitado'); },
     pickG: function (el, d) { pick.g = d.g; pick.p = 'all'; openPicker(); },
     pickP: function (el, d) { pick.p = d.p; openPicker(); },
-    addPick: function (el, d) { S.week[selDay].exs.push(d.ex); markExtra(d.ex); activate(d.ex); save(); closeSheet(); renderToday(); toast('Ejercicio extra añadido a hoy'); },
+    addPick: function (el, d) { var pdv = pd(); S.week[pdv].exs.push(d.ex); markExtra(d.ex); activate(d.ex); save(); closeSheet(); var m = TW.estMin(TW.getEx(S, d.ex)); if ((location.hash || '').indexOf('semana') >= 0) { wkSel = pdv; renderWeek(); } else renderToday(); toast('Añadido a ' + TW.DOW[pdv] + ' · +' + m + ' min'); },
     addMin: function (el, d) { var k = today(); S.extraMin = S.extraMin || {}; S.extraMin[k] = (S.extraMin[k] || 0) + Number(d.m); touchSession(); save(); renderToday(); toast('+' + d.m + ' min registrados'); },
     delExPhoto: function (el, d) { if (S.exPhotos) delete S.exPhotos[d.ex]; save(); openInfo(d.ex); },
     startTraining: function () {
@@ -1546,7 +1585,11 @@
 
   /* ---------- arranque ---------- */
   load().then(function () {
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
+    if ('serviceWorker' in navigator) {
+      var had = !!navigator.serviceWorker.controller;
+      navigator.serviceWorker.register('sw.js').catch(function () {});
+      navigator.serviceWorker.addEventListener('controllerchange', function () { if (had && !window.__twReload) { window.__twReload = 1; location.reload(); } });
+    }
     window.addEventListener('hashchange', route);
     route();
   }).catch(function () {
