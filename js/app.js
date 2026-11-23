@@ -614,7 +614,7 @@
       '<label class="field">Peso objetivo (kg)<input type="number" step="0.1" name="targetKg" value="' + (p.targetKg || '') + '"></label>' +
       '<label class="field">Objetivo prioritario<select name="goal">' + TW.ALL_GOALS.map(function (g) { return '<option value="' + g + '"' + (g === p.goal ? ' selected' : '') + '>' + TW.GOALS[g] + '</option>'; }).join('') + '</select></label>' +
       '</div><button class="ghost" data-a="saveProfile">Guardar perfil</button></div>' +
-      '<div class="card"><h3>Equipo</h3><p class="meta">Marca lo que tienes y escribe las cargas disponibles. La app solo redondea a esos valores.</p>' +
+      '<div class="card"><h3>Equipo</h3>' + equipScanHTML() + '<p class="meta">Marca lo que tienes y escribe las cargas disponibles. La app solo redondea a esos valores.</p>' +
       eq + '<button class="ghost" data-a="saveEquip">Guardar equipo</button></div>' +
       '<div class="card"><h3>Nivel</h3><p class="meta">Nivel actual: ' + ['', 'Principiante', 'Intermedio', 'Avanzado'][TW.level(S)] + '</p><div class="grid2">' +
       Object.keys(TW.ASSESS).map(function (k) {
@@ -741,7 +741,7 @@
         '<label class="field">Objetivo prioritario de la fase inicial<select name="goal">' + TW.ALL_GOALS.map(function (g) { return '<option value="' + g + '">' + TW.GOALS[g] + '</option>'; }).join('') + '</select></label>' +
         '<label class="check"><input type="checkbox" name="notice"> Entiendo que esta app no ofrece recomendaciones médicas.</label>';
     } else if (s === 2) {
-      body = '<p class="meta">Marca lo que tienes. Para los que llevan peso, escribe las cargas disponibles (kg).</p>' +
+      body = equipScanHTML() + '<p class="meta">Marca lo que tienes. Para los que llevan peso, escribe las cargas disponibles (kg).</p>' +
         Object.keys(TW.EQUIPMENT).map(function (k) {
           var x = S.equipment[k] || { on: false, loads: [] }, loadable = ['mancuernas', 'discos', 'bandas', 'barra'].indexOf(k) >= 0;
           return '<div class="eqrow"><label class="check"><input type="checkbox" data-group="equip" value="' + k + '"' + (x.on ? ' checked' : '') + '> ' + TW.EQUIPMENT[k] + '</label>' +
@@ -852,6 +852,106 @@
     save(); renderWizard();
   }
 
+  /* ---------- escaneo del equipo por foto (OCR en el navegador) ---------- */
+  var scanPreview = null, tessPromise = null;
+  var EQUIP_RULES = {
+    mancuernas: /mancuern|dumbbell|pesas? de mano/,
+    barra: /\bbarra\b|barbell/,
+    discos: /\bdiscos?\b|plate/,
+    barra_dominadas: /dominad|pull.?up|chin.?up/,
+    bandas: /banda|\bband|el[aá]stic|resistance/,
+    bicicleta: /bicicleta|\bbici\b|\bbike\b|cycle/,
+    banco: /\bbanco\b|\bbench\b/
+  };
+  function equipScanHTML() {
+    return '<div class="scan"><label class="field">Foto del equipo (opcional)<input type="file" id="equipPhoto" accept="image/*" capture="environment"></label>' +
+      (scanPreview ? '<img class="preview" src="' + scanPreview + '" alt="Foto del equipo">' : '') +
+      '<p id="scanMsg" class="meta">Toma una foto de tu equipo. La app intentará leer los pesos y marcar lo que reconozca; revisa antes de guardar.</p></div>';
+  }
+  function loadTesseract() {
+    if (window.Tesseract) return Promise.resolve(window.Tesseract);
+    if (!tessPromise) {
+      tessPromise = new Promise(function (resolve, reject) {
+        var s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+        s.onload = function () { resolve(window.Tesseract); };
+        s.onerror = function () { tessPromise = null; reject(new Error('cdn')); };
+        document.head.appendChild(s);
+      });
+    }
+    return tessPromise;
+  }
+  function fileToDataURL(file) {
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onload = function () { resolve(r.result); };
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+  }
+  function shrink(dataURL, max) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      img.onload = function () {
+        var m = Math.min(1, max / Math.max(img.width, img.height));
+        var c = document.createElement('canvas');
+        c.width = Math.round(img.width * m); c.height = Math.round(img.height * m);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        resolve(c.toDataURL('image/jpeg', 0.85));
+      };
+      img.onerror = reject;
+      img.src = dataURL;
+    });
+  }
+  /* Marca el equipo reconocido y añade los pesos leídos a los campos de carga; el usuario confirma al guardar. */
+  function applyEquipScan(text) {
+    var t = text.toLowerCase(), keys = [], labels = [], nums = [], m;
+    Object.keys(EQUIP_RULES).forEach(function (k) { if (EQUIP_RULES[k].test(t)) keys.push(k); });
+    var re = /(\d{1,3}(?:[.,]\d{1,2})?)\s*(?:kg|kgs|lb|lbs)?/gi;
+    while ((m = re.exec(text))) {
+      var v = Number(m[1].replace(',', '.'));
+      if (v >= 1 && v <= 100) nums.push(v);
+    }
+    var loads = Array.from(new Set(nums)).sort(function (a, b) { return a - b; });
+    var applied = false;
+    keys.forEach(function (k) {
+      var cb = document.querySelector('input[data-group="equip"][value="' + k + '"]');
+      if (cb) cb.checked = true;
+      labels.push(TW.EQUIPMENT[k]);
+      var inp = document.querySelector('input[name="load_' + k + '"]');
+      if (inp && loads.length) {
+        inp.value = parseLoads(parseLoads(inp.value).concat(loads).join(',')).join(', ');
+        applied = true;
+      }
+    });
+    return { labels: labels, loads: loads, applied: applied };
+  }
+  async function scanEquipPhoto(file) {
+    if (!file) return;
+    var setMsg = function (t) { var el = $('#scanMsg'); if (el) el.textContent = t; };
+    setMsg('Preparando la foto…');
+    try {
+      scanPreview = await shrink(await fileToDataURL(file), 1280);
+      var box = document.querySelector('.scan');
+      var img = box.querySelector('.preview') || document.createElement('img');
+      img.className = 'preview'; img.alt = 'Foto del equipo'; img.src = scanPreview;
+      if (!img.parentNode) box.insertBefore(img, $('#scanMsg'));
+    } catch (err) { setMsg('No pude abrir la foto. Intenta de nuevo.'); return; }
+    setMsg('Leyendo pesos… la primera vez descarga el reconocimiento de texto.');
+    try {
+      var T = await loadTesseract();
+      var res = await T.recognize(scanPreview, 'spa+eng');
+      var r = applyEquipScan(res.data.text || '');
+      var parts = [];
+      if (r.labels.length) parts.push('Reconocí: ' + r.labels.join(', ') + '.');
+      if (r.loads.length && !r.applied) parts.push('Leí los números ' + r.loads.join(', ') + ' kg, pero no sé a qué equipo pertenecen: escríbelos tú.');
+      if (r.applied) parts.push('Pesos añadidos a las cargas.');
+      setMsg((parts.join(' ') || 'No reconocí equipo ni pesos con claridad. Marca el equipo y escribe las cargas a mano.') + ' Revisa antes de guardar.');
+    } catch (err) {
+      setMsg('No pude leer la foto (¿hay conexión?). Marca el equipo y escribe las cargas a mano.');
+    }
+  }
+
   /* ---------- acciones ---------- */
   var ACT = {
     selDay: function (el, d) { selDay = Number(d.d); renderToday(); },
@@ -906,6 +1006,7 @@
   document.addEventListener('change', function (e) {
     var t = e.target;
     if (t.id === 'photo') handlePhoto(t.files[0]);
+    else if (t.id === 'equipPhoto') scanEquipPhoto(t.files[0]);
     else if (t.id === 'importFile') importFile(t.files[0]);
     else if (t.dataset.f === 'progSel') { progSel = t.value; renderProgress(); }
     else if (t.dataset.f === 'pat') { libFilter.pat = t.value; renderLibrary(); }
