@@ -203,6 +203,6 @@ TW.bodySVG = function (muscles, size) {
 
 /* Perfil y equipo personales del usuario (se cargan con un botón; la edad no se incluye porque no se ha dado). */
 TW.MY = {
-  profile: { weight: 115, height: 174, days: 4, targetKg: 107, goal: 'definicion', exp: 'principiante', minutes: 20, arm: 37, neck: 42.5, waist: 118, lowImpact: true },
+  profile: { weight: 115, height: 174, days: 4, targetKg: 107, goal: 'definicion', exp: 'principiante', minutes: 20, arm: 37, neck: 42.5, waist: 118, lowImpact: true, sex: 'm' },
   equip: ['mancuernas', 'discos', 'barra', 'kettlebell', 'banda_rosa', 'banda_turquesa', 'cuerda_saltar']
 };

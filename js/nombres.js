@@ -91,3 +91,30 @@ TW.GLOSSARY = [
   ['Descarga', 'Semana con menos carga o volumen para recuperarte y seguir progresando.'],
   ['Calistenia', 'Entrenamiento con el peso del propio cuerpo, como flexiones, dominadas y sentadillas.']
 ];
+
+/* Frases para meditar: [texto en español (traducción libre), autor]. Atribuciones según recopilaciones públicas; pueden variar. */
+TW.QUOTES = [
+  ['Ganar no ocurre el día del show: ocurre en las madrugadas, los entrenos duros y las noches con hambre.', 'Chris Bumstead'],
+  ['La confianza se construye con acción, no con motivación.', 'Chris Bumstead (idea de sus «no negociables»)'],
+  ['Cada promesa que cumples fortalece tu confianza; cada excusa hace más fácil romper la siguiente.', 'Chris Bumstead (idea)'],
+  ['La confianza total es mentira: los miedos no desaparecen, solo duran menos.', 'Chris Bumstead (traducción libre)'],
+  ['Lo peor que puedo ser es igual que todos los demás.', 'Arnold Schwarzenegger'],
+  ['La fuerza no viene de ganar: tus luchas la desarrollan. Cuando no te rindes, eso es fuerza.', 'Arnold Schwarzenegger (traducción libre)'],
+  ['Vivir no es solo existir: es avanzar, lograr y conquistar.', 'Arnold Schwarzenegger (traducción libre)'],
+  ['El entrenamiento de verdad empieza cuando quieres parar.', 'Ronnie Coleman (atribución probable)'],
+  ['La motivación te pone en marcha; el hábito te mantiene.', 'Jim Rohn'],
+  ['Elegir lo que más quieres sobre lo que quieres ahora: eso es disciplina.', 'atribuida a Abraham Lincoln']
+];
+
+/* Calentamiento específico según el patrón del ejercicio. */
+TW.PATTERN_WARM = {
+  sentadilla: 'Camina 3 min y haz sentadilla sin peso 2 × 10, lenta.',
+  bisagra: 'Puente de glúteo sin peso 2 × 12 y círculos de cadera.',
+  empuje: 'Círculos de hombro 10 c/u y una serie ligera con la banda turquesa.',
+  tiron: 'Círculos de hombro y remo con banda turquesa 1 × 15.',
+  zancada: 'Movilidad de cadera y 8 zancadas cortas sin peso por pierna.',
+  aislamiento: 'Una serie con la mitad de la carga antes de la primera serie de trabajo.',
+  core: 'Respira profundo y activa el abdomen 20 s antes de empezar.',
+  cardio: 'Empieza a ritmo suave los primeros 2 minutos.',
+  flexibilidad: 'Haz esto con el cuerpo ya caliente, al final de la sesión.'
+};

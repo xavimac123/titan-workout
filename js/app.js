@@ -6,6 +6,74 @@
   var view = $('#view');
   var S = null, W = null, selDay = null, progSel = null, restIv = null, toastTo = null, sheetCtx = null;
   var libFilter = { pat: '', goal: '' };
+  var curNum = 0, quoteIdx = null;
+  function bsvg(m, size) { return TW.bodySVG(m, size, (S && S.profile && S.profile.sex) || 'm'); }
+  function numB() { return curNum ? '<span class="num">' + curNum + '</span>' : ''; }
+  function muscleNames(e) { return (e.muscles || []).map(function (m) { return TW.MUSCLES[m]; }).join(' · '); }
+  function infoBtn(e) { return '<button class="info-btn" data-a="info" data-ex="' + e.id + '" aria-label="Información de ' + esc(TW.exName(e)) + '">i</button>'; }
+  var BLOCKS = [
+    { id: 'main', name: 'Fuerza principal', hint: 'Empieza aquí: lo más exigente, con la mente fresca' },
+    { id: 'acc', name: 'Accesorios y core', hint: 'Músculos más pequeños y abdomen' },
+    { id: 'cardio', name: 'Cardio suave', hint: 'Bajo impacto' },
+    { id: 'cool', name: 'Flexibilidad', hint: 'Vuelta a la calma' }
+  ];
+  function blockOf(e) {
+    if (e.type === 'flex') return 'cool';
+    if (e.type === 'cardio') return 'cardio';
+    return ['sentadilla', 'bisagra', 'empuje', 'tiron', 'zancada'].indexOf(e.pattern) >= 0 ? 'main' : 'acc';
+  }
+  function estMin(e) {
+    if (e.type === 'cardio') return e.minutes || 10;
+    if (e.type === 'flex') return Math.max(1, Math.round((e.positions || []).reduce(function (a, p) { return a + p.sec; }, 0) / 60));
+    return Math.max(1, Math.round((e.sets || 3) * (40 + (e.rest || 60)) / 60));
+  }
+  function blocksHTML(exs, canLog) {
+    var n = 0, out = '';
+    BLOCKS.forEach(function (b) {
+      var list = exs.filter(function (e) { return blockOf(e) === b.id; }).sort(function (x, y) {
+        return (y.diff || 1) - (x.diff || 1) || ((y.equip || []).length ? 1 : 0) - ((x.equip || []).length ? 1 : 0);
+      });
+      if (!list.length) return;
+      var mins = list.reduce(function (a, e) { return a + estMin(e); }, 0);
+      out += '<h3 class="blk">' + b.name + ' <small>~' + mins + ' min · ' + b.hint + '</small></h3>' +
+        list.map(function (e) { curNum = ++n; return exCard(e, canLog); }).join('');
+    });
+    curNum = 0;
+    return out;
+  }
+  function quoteHTML() {
+    var Q = TW.QUOTES; if (!Q || !Q.length) return '';
+    if (quoteIdx == null) quoteIdx = Math.floor(Date.now() / 86400000) % Q.length;
+    var q = Q[quoteIdx % Q.length];
+    return '<article class="card quote"><p>“' + esc(q[0]) + '”</p><small>— ' + esc(q[1]) + '</small>' +
+      '<button class="ghost" data-a="quote">Otra frase</button></article>';
+  }
+  function openInfo(id) {
+    var e = TW.getEx(S, id), mus = (e.muscles || []).filter(function (m) { return m !== 'cuerpo_completo'; });
+    var prim = mus[0] ? TW.MUSCLES[mus[0]] : null, sec = mus.slice(1).map(function (m) { return TW.MUSCLES[m]; });
+    var eq = (e.equip || []).map(function (k) { return '<span class="pill">' + TW.equipIcon(k, 20) + ' ' + esc(String(TW.EQUIPMENT[k]).split(' (')[0]) + '</span>'; }).join(' ') || '<span class="pill">Sin equipo</span>';
+    var inBlock = BLOCKS.filter(function (b) { return b.id === blockOf(e); })[0];
+    openSheet('<div class="big">' + bsvg(e.muscles, 'big') + '</div>' +
+      '<h3>' + exTitle(e) + '</h3>' +
+      '<p class="lbl">Qué trabaja</p><p>' + (prim ? '<b>' + prim + '</b>' : 'Todo el cuerpo') + (sec.length ? ' <span class="meta">· también: ' + sec.join(', ') + '</span>' : '') + '</p>' +
+      '<p class="lbl">Cómo hacerlo</p><p>' + esc(TW.exHow(e)) + '</p>' +
+      (e.note ? '<p class="meta"><em>' + esc(e.note) + '</em></p>' : '') +
+      '<p class="lbl">Equipo</p><p>' + eq + '</p>' +
+      '<p class="lbl">Calentamiento antes de este ejercicio</p><p>' + esc(TW.PATTERN_WARM[e.pattern] || 'Calienta 3–5 min antes.') + '</p>' +
+      '<p class="lbl">Dónde va en la sesión</p><p>' + (inBlock ? esc(inBlock.name) + ' · ' + esc(inBlock.hint) : '') + '. Dificultad ' + (e.diff || 1) + '/3.</p>' +
+      '<button class="wide ghost" data-a="closeSheet">Cerrar</button>');
+  }
+  function myEquipHTML() {
+    var keys = Object.keys(TW.EQUIPMENT);
+    return '<div class="card"><h3>Mi equipo</h3><p class="meta">Toca un equipo para activarlo o desactivarlo.</p><div class="eqgrid">' +
+      keys.map(function (k) {
+        var x = S.equipment[k] || { on: false, loads: [] }, loadable = TW.LOADABLE.indexOf(k) >= 0;
+        var lv = (x.loads && x.loads.length) ? x.loads : (TW.PRESET_LOADS[k] || []);
+        var sub = loadable && lv.length ? (lv[0] === lv[lv.length - 1] ? lv[0] + ' kg' : lv[0] + '–' + lv[lv.length - 1] + ' kg') : '';
+        return '<button class="eqtile' + (x.on ? ' on' : '') + '" data-a="toggleEq" data-k="' + k + '" aria-pressed="' + (x.on ? 'true' : 'false') + '">' +
+          TW.equipIcon(k, 40) + '<span>' + esc(String(TW.EQUIPMENT[k]).split(' (')[0]) + '</span>' + (sub ? '<small>' + sub + '</small>' : '') + '</button>';
+      }).join('') + '</div>' + newEquipHTML() + '</div>';
+  }
 
   var esc = function (s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -60,6 +128,26 @@
     if (!(km > 0 && min > 0)) return '';
     if (e.id === 'bici_estatica') return (km / (min / 60)).toFixed(1) + ' km/h';
     return TW.fmt(Math.round(min / km * 60)) + ' min/km';
+  }
+  function touchSession() {
+    var d = today(), n = Date.now();
+    S.sess = S.sess || {};
+    if (!S.sess[d]) S.sess[d] = { s: n - 60000, e: n }; else S.sess[d].e = n;
+  }
+  function dayMinutes(date) {
+    var sess = (S.sess || {})[date], est = 0;
+    S.logs.forEach(function (l) {
+      if (l.date !== date) return;
+      est += (l.sets || []).filter(Boolean).length * 1.5;
+      if (l.cardio) est += l.cardio.min || 0;
+      if (l.flexDone) est += 5;
+    });
+    var act = sess ? Math.round((sess.e - sess.s) / 60000) : 0;
+    return Math.min(120, Math.round(Math.max(act, est)));
+  }
+  function weekDates(offset) {
+    var st = TW.addDays(TW.weekStart(new Date()), (offset || 0) * 7);
+    return [0, 1, 2, 3, 4, 5, 6].map(function (i) { return TW.ymd(TW.addDays(st, i)); });
   }
   function getLog(date, exId, create) {
     var l = S.logs.find(function (x) { return x.date === date && x.ex === exId; });
@@ -147,14 +235,51 @@
 
   /* ---------- enrutado ---------- */
   function route() {
-    var name = (location.hash.slice(1) || 'hoy').split('?')[0];
+    var name = (location.hash.slice(1) || 'inicio').split('?')[0];
     if (!S.profile && name !== 'config') { location.hash = '#config'; return; }
     document.querySelectorAll('#tabs a').forEach(function (a) { a.classList.toggle('on', a.dataset.tab === name); });
     $('#tabs').classList.toggle('hidden', name === 'config');
-    var R = { hoy: renderToday, semana: renderWeek, ruta: renderRoad, progreso: renderProgress,
-      biblioteca: renderLibrary, ajustes: renderSettings, config: renderWizard }[name] || renderToday;
+    var R = { inicio: renderHome, hoy: renderToday, semana: renderWeek, ruta: renderRoad, progreso: renderProgress,
+      biblioteca: renderLibrary, ajustes: renderSettings, config: renderWizard }[name] || renderHome;
     closeSheet();
     R();
+  }
+
+  /* ---------- INICIO (dashboard) ---------- */
+  function renderHome() {
+    var p = S.profile, ti = todayIdx(), dates = weekDates(0), prev = weekDates(-1);
+    var start = (S.body[0] && S.body[0].kg) || p.weight, cur = TW.metric(S, 'peso'), tgt = p.targetKg || null;
+    var pct = tgt && start !== tgt ? TW.clamp(Math.round((start - cur) / (start - tgt) * 100), 0, 100) : 0;
+    var planned = 0, done = 0, total = 0, last = 0;
+    var days = dates.map(function (d, i) {
+      var plan = S.week[i] && S.week[i].exs.length > 0, m = dayMinutes(d), did = m > 0;
+      if (plan) planned++;
+      if (plan && did) done++;
+      total += m;
+      return { i: i, plan: plan, did: did, m: m, today: i === ti };
+    });
+    prev.forEach(function (d) { last += dayMinutes(d); });
+    var maxM = Math.max(20, days.reduce(function (a, d) { return Math.max(a, d.m); }, 0));
+    var info = TW.dayInfo(S, S.week[ti]);
+    var cta = info.exs.length ? (days[ti].did ? 'Continuar entrenamiento' : 'Iniciar entrenamiento') : 'Hoy descansas · ver Hoy';
+    var cols = days.map(function (d) {
+      return '<div class="wkcol' + (d.today ? ' today' : '') + '"><div class="wkbar"><i style="height:' + Math.round(d.m / maxM * 100) + '%"></i></div>' +
+        '<b>' + TW.DOW[d.i] + '</b><small>' + (d.m ? d.m + ' min' : d.plan ? '·' : '–') + '</small></div>';
+    }).join('');
+    var diff = total - last;
+    view.innerHTML = '<section class="page"><h2 class="title">Inicio</h2>' +
+      '<article class="card hero"><div class="hero-l">' + ringHTML(planned ? Math.round(done / planned * 100) : 0) +
+      '</div><div class="hero-r"><p class="lbl">Esta semana</p><p class="big">' + done + '/' + planned + ' <small>días</small></p>' +
+      '<p class="meta">Hoy: ' + esc(info.name) + '</p></div>' +
+      '<button class="wide" data-a="startTraining">' + cta + '</button></article>' +
+      '<article class="card"><h3>Peso</h3><div class="stats3">' +
+      '<div><small>Inicial</small><b>' + start + '</b></div><div><small>Actual</small><b>' + cur + '</b></div><div><small>Meta</small><b>' + (tgt || '—') + '</b></div></div>' +
+      (tgt ? '<div class="pbar"><i style="width:' + pct + '%"></i></div><p class="meta">' + pct + '% del camino · ' + (cur > tgt ? 'faltan ' + (Math.round((cur - tgt) * 10) / 10) + ' kg' : 'meta alcanzada') + '</p>' : '<p class="meta">Define tu peso objetivo en Ajustes.</p>') +
+      '<p class="meta">Objetivo: ' + esc(TW.GOALS[p.goal] || '') + ' · ' + (p.days || 4) + ' días/semana · ' + (p.minutes || 20) + ' min por sesión</p></article>' +
+      '<article class="card"><h3>Tiempo entrenado</h3><div class="wkgrid">' + cols + '</div>' +
+      '<p class="meta"><b>' + total + ' min</b> esta semana' + (last ? ' · semana pasada ' + last + ' min (' + (diff >= 0 ? '+' : '') + diff + ')' : '') + '</p></article>' +
+      quoteHTML() +
+      '<div class="row"><a class="ghost linkbtn" href="#ruta">Ver ruta</a><a class="ghost linkbtn" href="#semana">Editar semana</a></div></section>';
   }
 
   /* ---------- HOY ---------- */
@@ -184,13 +309,13 @@
     }).join('');
     var body = info.exs.length
       ? ringHTML(pct) + '<p class="meta">' + done + '/' + total + ' series completadas' + (canLog ? '' : ' · solo puedes registrar el día de hoy') + '</p>' +
-        info.exs.map(function (e) { return exCard(e, canLog); }).join('') +
+        blocksHTML(info.exs, canLog) +
         '<button class="wide" data-a="finishDay" data-d="' + selDay + '"' + (canLog ? '' : ' disabled') + '>Terminar día</button>'
       : restDayHTML();
     view.innerHTML = '<section class="page"><nav class="dows">' + dows + '</nav>' +
       '<h2 class="title">' + esc(info.name) + '</h2>' +
       '<p class="sub">' + (info.groups.map(function (g) { return TW.MUSCLES[g]; }).join(' · ') || 'Sin entrenamiento programado') + '</p>' +
-      minCardHTML() + (info.exs.length ? warmupHTML() : '') + body + '</section>';
+      minCardHTML() + (info.exs.length ? warmupHTML() : '') + body + quoteHTML() + '</section>';
   }
   function minCardHTML() {
     var p = S.profile || {}, wk = TW.weekKey(today());
@@ -231,10 +356,10 @@
     return TW.lowImpact(S) ? list.filter(function (t) { return !/trote|salto/i.test(t); }) : list;
   }
   function warmupHTML() {
-    return '<article class="card"><h3>Calentamiento (5–10 min)</h3><div class="grid2">' +
+    return '<details class="card"><summary><b>Calentamiento</b> <small>~5–10 min · antes de empezar</small></summary><div class="grid2">' +
       '<div><p class="lbl">En casa</p>' + warmItems(TW.WARMUP.casa).map(function (t) { return '<label class="check"><input type="checkbox"> ' + esc(t) + '</label>'; }).join('') + '</div>' +
       '<div><p class="lbl">Espacio abierto</p>' + warmItems(TW.WARMUP.abierto).map(function (t) { return '<label class="check"><input type="checkbox"> ' + esc(t) + '</label>'; }).join('') + '</div>' +
-      '</div></article>';
+      '</div></details>';
   }
   function startLoadsHTML() {
     var exp = (S.profile && S.profile.exp) || 'principiante';
@@ -278,12 +403,10 @@
     var needLoad = e.prog === 'carga' && !TW.loadsFor(S, e).length
       ? '<p class="warn">Configura las cargas de tu equipo en Ajustes.</p>' : '';
     return '<article class="card" data-ex="' + e.id + '">' +
-      '<div class="card-h"><div><h3>' + exTitle(e) + '</h3><p class="how">' + esc(TW.exHow(e)) + '</p>' +
+      '<div class="card-h"><div><h3>' + exTitle(e) + '</h3><small class="step">' + muscleNames(e) + '</small>' +
       (tgt ? '<small class="step">Paso ' + (tgt.step + 1) + '/' + tgt.total + ': ' + esc(tgt.name) + '</small>' : '') +
-      '</div>' + TW.bodySVG(e.muscles, 'mini') + '</div>' +
-      '<p class="note"><em>' + esc(e.note) + '</em></p>' +
+      '</div>' + infoBtn(e) + '</div>' +
       '<p class="reps">' + repLabel(e, sug) + '</p>' + needLoad +
-      '<div class="pbar small" aria-hidden="true"><i style="width:' + pct + '%"></i></div>' +
       '<div class="sets">' + sets.map(function (s, k) {
         return '<button class="set' + (s ? ' done' : '') + '" data-a="logSet" data-ex="' + e.id + '" data-i="' + k + '"' +
           (canLog ? '' : ' disabled') + ' aria-label="Serie ' + (k + 1) + (s ? ': ' + s.reps + ' repeticiones' : '') + '">' + (s ? s.reps : k + 1) + '</button>';
@@ -295,8 +418,7 @@
   function cardioCard(e, canLog) {
     var L = getLog(today(), e.id), c = L && L.cardio;
     return '<article class="card cardio" data-ex="' + e.id + '">' +
-      '<div class="card-h"><div><h3>' + exTitle(e) + '</h3><small class="step">Duración objetivo: ' + e.minutes + ' min</small></div>' + TW.bodySVG(e.muscles, 'mini') + '</div>' +
-      '<p class="note"><em>' + esc(e.note) + '</em></p>' +
+      '<div class="card-h"><div><h3>' + exTitle(e) + '</h3><small class="step">Duración objetivo: ' + e.minutes + ' min</small></div>' + infoBtn(e) + '</div>' +
       '<form class="grid2" data-cardio="' + e.id + '">' +
       '<label>Distancia (km)<input type="number" step="0.01" min="0" name="km" value="' + (c && c.km != null ? c.km : '') + '"' + (canLog ? '' : ' disabled') + '></label>' +
       '<label>Tiempo (min)<input type="number" step="0.5" min="0" name="min" value="' + (c && c.min != null ? c.min : '') + '"' + (canLog ? '' : ' disabled') + '></label>' +
@@ -312,8 +434,7 @@
     var canLog = selDay === todayIdx();
     var L = getLog(today(), e.id);
     return '<article class="card flex" data-ex="' + e.id + '">' +
-      '<div class="card-h"><div><h3>' + exTitle(e) + '</h3><small class="step blue">Etapa ' + (st + 1) + '/4: ' + TW.STAGES[st] + '</small></div>' + TW.bodySVG(e.muscles, 'mini') + '</div>' +
-      '<p class="note"><em>' + esc(e.note) + '</em></p>' +
+      '<div class="card-h"><div><h3>' + exTitle(e) + '</h3><small class="step blue">Etapa ' + (st + 1) + '/4: ' + TW.STAGES[st] + '</small></div>' + infoBtn(e) + '</div>' +
       e.positions.map(function (ps) {
         return '<div class="pos"><span>' + esc(ps.name) + '</span><button class="ghost" data-a="flexTimer" data-sec="' + ps.sec + '">▶ ' + ps.sec + ' s</button></div>';
       }).join('') +
@@ -353,7 +474,7 @@
     var isNew = !L.sets[c.idx];
     L.sets[c.idx] = { reps: c.reps, load: c.load, rpe: c.rpe };
     for (var i = 0; i < e.sets; i++) { if (L.sets[i] === undefined) L.sets[i] = null; }
-    save(); closeSheet(); renderToday(); toast('Serie guardada');
+    touchSession(); save(); closeSheet(); renderToday(); toast('Serie guardada');
     if (isNew && e.rest) startTimer(e.rest, 'Descanso');
   }
   function saveCardio(id) {
@@ -363,7 +484,7 @@
     var L = getLog(today(), id, true);
     L.cardio = { km: km, min: min, rpe: Number(v.rpe) || null, hr: Number(v.hr) || null, pace: pace,
       zone: TW.hrZone(Number(v.hr), S.profile.age) };
-    save(); renderToday(); toast('Sesión guardada' + (pace ? ' · ' + pace : ''));
+    touchSession(); save(); renderToday(); toast('Sesión guardada' + (pace ? ' · ' + pace : ''));
   }
   function flexDone(id) {
     var e = TW.getEx(S, id), p = TW.progOf(S, e), L = getLog(today(), id, true);
@@ -375,7 +496,7 @@
       p.stage = Math.min(3, (p.stage || 0) + 1); p.flexCount = 0;
       msg = 'Etapa avanzada: ' + TW.STAGES[p.stage];
     }
-    save(); renderToday(); toast(msg);
+    touchSession(); save(); renderToday(); toast(msg);
   }
   function finishDay() {
     var info = TW.dayInfo(S, S.week[selDay]), date = today(), msgs = [];
@@ -708,7 +829,7 @@
   function openDetail(id) {
     var e = TW.getEx(S, id), loads = TW.loadsFor(S, e), subs = TW.substitutes(S, e);
     var prog = e.ladder ? 'Escalera: ' + TW.LADDERS[e.ladder].steps.map(function (s) { return s.name; }).join(' → ') : TW.PROGS[e.prog] || 'Repeticiones';
-    openSheet('<div class="big">' + TW.bodySVG(e.muscles, 'big') + '</div><h3>' + esc(e.name) + '</h3>' +
+    openSheet('<div class="big">' + bsvg(e.muscles, 'big') + '</div><h3>' + esc(e.name) + '</h3>' +
       '<p class="note"><em>' + esc(e.note) + '</em></p>' +
       '<p class="meta">Progresión: ' + esc(prog) + '</p>' +
       (loads.length ? '<p class="meta">Cargas disponibles: ' + loads.join(', ') + ' kg</p>' : '') +
@@ -776,11 +897,13 @@
       '<label class="field">Experiencia<select name="exp">' + Object.keys(TW.EXP).map(function (k) { return '<option value="' + k + '"' + ((p.exp || 'principiante') === k ? ' selected' : '') + '>' + TW.EXP[k].label + '</option>'; }).join('') + '</select></label>' +
       '<label class="field">Minutos por sesión<input type="number" min="10" max="90" step="5" name="minutes" value="' + (p.minutes || 20) + '"></label>' +
       '<label class="field">Bajo impacto (sin saltos ni trote)<select name="lowImpact"><option value="si"' + (TW.lowImpact(S) ? ' selected' : '') + '>Sí</option><option value="no"' + (TW.lowImpact(S) ? '' : ' selected') + '>No</option></select></label>' +
+      '<label class="field">Sexo (para las ilustraciones)<select name="sex"><option value="m"' + (p.sex !== 'f' ? ' selected' : '') + '>Hombre</option><option value="f"' + (p.sex === 'f' ? ' selected' : '') + '>Mujer</option></select></label>' +
       '<label class="field">Cuello (cm)<input type="number" step="0.5" name="neck" value="' + (p.neck || '') + '"></label>' +
       '<label class="field">Medida de brazo (cm)<input type="number" step="0.5" name="arm" value="' + (p.arm || 37) + '"></label>' +
       '</div><p class="meta">Empieza con 20 min y sube de forma gradual; la app te preguntará cada semana si subes.</p><button class="ghost" data-a="saveProfile">Guardar perfil</button></div>' +
-      '<div class="card"><h3>Equipo</h3>' + equipScanHTML() + '<p class="meta">Marca lo que tienes y escribe las cargas disponibles. La app solo redondea a esos valores.</p>' +
-      eq + newEquipHTML() + startLoadsHTML() + '<p class="meta">' + TW.BANDS_NOTE + '</p><ul class="plain">' + Object.keys(TW.BAND_ZONES).map(function (k) { return '<li>' + esc(TW.EQUIPMENT[k]) + ': ' + esc(TW.BAND_ZONES[k]) + '</li>'; }).join('') + '</ul><button class="ghost" data-a="saveEquip">Guardar equipo</button></div>' +
+      myEquipHTML() +
+      '<details class="card"><summary><b>Editar equipo y cargas</b></summary>' + equipScanHTML() + '<p class="meta">Marca lo que tienes y escribe las cargas disponibles. La app solo redondea a esos valores.</p>' +
+      eq + startLoadsHTML() + '<p class="meta">' + TW.BANDS_NOTE + '</p><ul class="plain">' + Object.keys(TW.BAND_ZONES).map(function (k) { return '<li>' + esc(TW.EQUIPMENT[k]) + ': ' + esc(TW.BAND_ZONES[k]) + '</li>'; }).join('') + '</ul><button class="ghost" data-a="saveEquip">Guardar equipo</button></details>' +
       '<div class="card"><h3>Nivel</h3><p class="meta">Nivel actual: ' + ['', 'Principiante', 'Intermedio', 'Avanzado'][TW.level(S)] + '</p><div class="grid2">' +
       Object.keys(TW.ASSESS).map(function (k) {
         return '<label class="field">' + TW.ASSESS[k] + '<input type="number" min="0" name="as_' + k + '" value="' + (a[k] || 0) + '"></label>';
@@ -806,7 +929,7 @@
       weight: v.weight, height: v.height, age: v.age, days: TW.clamp(Number(v.days) || 3, 3, 6),
       targetKg: v.targetKg || null, goal: v.goal, exp: TW.EXP[v.exp] ? v.exp : 'principiante',
       minutes: TW.clamp(Number(v.minutes) || 20, 10, 90),
-      arm: Number(v.arm) || null, neck: Number(v.neck) || null,
+      arm: Number(v.arm) || null, neck: Number(v.neck) || null, sex: v.sex === 'f' ? 'f' : 'm',
       lowImpact: v.lowImpact !== 'no'
     });
     save(); toast('Perfil guardado'); renderSettings();
@@ -909,6 +1032,7 @@
         '<label class="field">Peso actual (kg)<input type="number" step="0.1" name="weight" value="' + (pf.weight || '') + '" required></label>' +
         '<div class="grid2"><label class="field">Estatura (cm)<input type="number" name="height" value="' + (pf.height || '') + '" required></label>' +
         '<label class="field">Edad<input type="number" name="age" min="10" max="99" required></label></div>' +
+        '<label class="field">Sexo (para las ilustraciones)<select name="sex"><option value="m"' + (pf.sex !== 'f' ? ' selected' : '') + '>Hombre</option><option value="f"' + (pf.sex === 'f' ? ' selected' : '') + '>Mujer</option></select></label>' +
         '<div class="grid2"><label class="field">Días de entrenamiento<select name="days">' + [3, 4, 5, 6].map(function (d) { return '<option value="' + d + '"' + (d === pf.days ? ' selected' : '') + '>' + d + '</option>'; }).join('') + '</select></label>' +
         '<label class="field">Peso objetivo (kg)<input type="number" step="0.1" name="targetKg" value="' + (pf.targetKg || '') + '"></label></div>' +
         '<label class="field">Objetivo prioritario de la fase inicial<select name="goal">' + TW.ALL_GOALS.map(function (g) { return '<option value="' + g + '"' + (g === pf.goal ? ' selected' : '') + '>' + TW.GOALS[g] + '</option>'; }).join('') + '</select></label>' +
@@ -978,7 +1102,7 @@
       if (!(v.weight > 0) || !(v.height > 0) || !(v.age > 0)) { toast('Completa peso, estatura y edad'); return; }
       if (!v.notice) { toast('Confirma el aviso para continuar'); return; }
       S.profile = { weight: v.weight, height: v.height, age: v.age, days: TW.clamp(Number(v.days) || 3, 3, 6),
-        goal: v.goal, targetKg: v.targetKg || null, bodyType: 'mixto', waist: null };
+        goal: v.goal, targetKg: v.targetKg || null, bodyType: 'mixto', waist: null, sex: v.sex === 'f' ? 'f' : 'm' };
       if (W.mine) {
         var m = TW.MY.profile;
         Object.assign(S.profile, { exp: m.exp, minutes: m.minutes, arm: m.arm, neck: m.neck, waist: m.waist, lowImpact: m.lowImpact });
@@ -999,7 +1123,7 @@
       S.week.forEach(function (d) { d.exs.forEach(activate); });
       save(); W.step = 5;
     } else {
-      W = null; location.hash = '#hoy'; return;
+      W = null; location.hash = '#inicio'; return;
     }
     renderWizard();
   }
@@ -1159,6 +1283,17 @@
     savePhase: function (el, d) { savePhase(d.id); },
     saveBody: saveBody,
     saveSleep: saveSleep,
+    info: function (el, d) { openInfo(d.ex); },
+    startTraining: function () {
+      var d = today(); S.sess = S.sess || {};
+      if (!S.sess[d]) S.sess[d] = { s: Date.now(), e: Date.now() };
+      save(); selDay = todayIdx(); location.hash = '#hoy';
+    },
+    quote: function () { quoteIdx = (quoteIdx == null ? 0 : quoteIdx) + 1; renderToday(); },
+    toggleEq: function (el, d) {
+      var x = S.equipment[d.k] || { on: false, loads: [] }; x.on = !x.on; S.equipment[d.k] = x;
+      save(); renderSettings();
+    },
     applyMine: applyMine,
     addEquip: addEquip,
     wizMine: function () { W.mine = true; renderWizard(); },
