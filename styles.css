@@ -161,3 +161,5 @@ label.check input[type=checkbox] { width: 22px; height: 22px; min-height: 22px; 
 .es { font-size: .7rem; color: var(--mut); font-weight: 400; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+.brand{display:flex;align-items:center;gap:8px}.brand img{border-radius:7px}
