@@ -29,7 +29,10 @@
         'C' + f(x - s * 8) + ' 178 ' + f(x - s * 8) + ' 188 ' + f(x - s * 9) + ' 196 L' + f(c + s * 5) + ' 196 ' +
         'C' + f(c + s * 4) + ' 186 ' + f(c + s * 4) + ' 176 ' + f(c + s * 5) + ' 166 C' + f(c + s * 3) + ' 150 ' + f(c + s * 2) + ' 132 ' + c + ' 120Z';
     };
-    return '<g class="sil"><ellipse cx="50" cy="15" rx="9" ry="11"/><path d="M45 24 L55 24 L56 32 L44 32Z"/>' +
+    var hand = function (s) { var x = c + s * sw; return '<path d="M' + f(x - s * 7) + ' 108 C' + f(x - s * 9) + ' 116 ' + f(x - s * 8) + ' 124 ' + f(x - s * 5) + ' 126 C' + f(x - s * 2) + ' 126 ' + f(x + s * 0) + ' 118 ' + f(x + s * 0) + ' 110Z"/>'; };
+    var foot = function (s) { return '<path d="M' + f(c + s * 5) + ' 194 L' + f(c + s * 9) + ' 194 C' + f(c + s * 13) + ' 197 ' + f(c + s * 13) + ' 201 ' + f(c + s * 9) + ' 201 L' + f(c + s * 4) + ' 201Z"/>'; };
+    return '<g class="sil"><ellipse cx="50" cy="15" rx="9" ry="11"/><ellipse cx="41" cy="16" rx="1.6" ry="3"/><ellipse cx="59" cy="16" rx="1.6" ry="3"/><path d="M45 24 L55 24 L57 33 L43 33Z"/>' +
+      hand(1) + hand(-1) + foot(1) + foot(-1) +
       '<path d="' + torso + '"/><path d="' + arm(1) + '"/><path d="' + arm(-1) + '"/><path d="' + leg(1) + '"/><path d="' + leg(-1) + '"/></g>';
   }
 
@@ -52,8 +55,19 @@
   var NEUTRAL_FRONT = ['M77 84 C80 84 82 88 81 96 C80 102 79 106 77 108 C75 104 74 98 74 92Z', 'M53 164 C58 163 62 166 62.5 173 C62 182 60 188 57 192 C54 188 53 180 52 172Z'];
   var NEUTRAL_BACK = ['M51 40 C56 41 61 44 65 47 C61 51 55 55 51 59Z', 'M77 84 C80 84 82 88 81 96 C80 102 79 106 77 108 C75 104 74 98 74 92Z'];
 
-  function mirror(paths, cls) {
-    var d = paths.map(function (p) { return '<path class="' + cls + '" d="' + p + '"/>'; }).join('');
+  /* Líneas de detalle (separaciones musculares) para dar volumen. */
+  var DET_FRONT = ['M51 40 C57 38.6 63 38.8 67 40', 'M52 58 C58 61.5 64 59 67.5 53', 'M51.5 69 L58.5 68.4', 'M51.5 77 L59 76.4', 'M51.5 85 L58.5 84.6',
+    'M66.5 63 L63 64.8', 'M67 68 L63.5 70', 'M57.5 124 C58.6 138 58.4 150 57.2 158', 'M53.5 160 C56 163.5 60 163.5 62 160', 'M63 36 C66 41 71 45 75 55'];
+  var DET_BACK = ['M52 46 C58 49 64 52 68 58', 'M52 64 C58 66 62 70 64 76', 'M51.5 100 C56 103 60 103 65 100', 'M56.5 124 C57.6 138 57.2 150 56 157', 'M57 168 C58 176 58 184 56.5 190',
+    'M63 36 C66 41 71 45 75 55', 'M52 80 C57 82 61 85 63 90'];
+  function details(list, b, centerLine) {
+    var d = list.map(function (q) { return '<path class="dl" d="' + q + '"/>'; }).join('');
+    var m = '<g>' + d + '</g><g transform="translate(100 0) scale(-1 1)">' + d + '</g>';
+    return '<g transform="translate(50 0) scale(' + b.us + ' 1) translate(-50 0)">' + m + (centerLine ? '<path class="dl" d="' + centerLine + '"/>' : '') + '</g>';
+  }
+  function mirror(paths, cls, op) {
+    var st = (op != null && op < 1) ? ' style="opacity:' + op + '"' : '';
+    var d = paths.map(function (p) { return '<path class="' + cls + '"' + st + ' d="' + p + '"/>'; }).join('');
     return '<g>' + d + '</g><g transform="translate(100 0) scale(-1 1)">' + d + '</g>';
   }
   /* Los músculos de arriba y abajo escalan según el sexo para ajustar a la silueta. */
@@ -61,7 +75,7 @@
   function layer(set, lit, b, neutral) {
     var up = '', lo = '';
     Object.keys(set).forEach(function (k) {
-      var g = mirror(set[k], lit(k) ? 'hi' : 'lo');
+      var v = lit(k), g = mirror(set[k], v ? 'hi' : 'lo', typeof v === 'number' ? 0.3 + 0.7 * v : 1);
       if (UPPER[k]) up += g; else lo += g;
     });
     var nu = '', nl = '';
@@ -74,19 +88,22 @@
     return '<g transform="' + tL + '">' + lo + nl + '</g><g transform="' + tU + '">' + nu + up + '</g>';
   }
 
-  TW.bodySVG = function (muscles, size, sex) {
+  TW.bodySVG = function (muscles, size, sex, heat) {
     var b = BODY[sex === 'f' ? 'f' : 'm'], all = muscles.indexOf('cuerpo_completo') >= 0;
-    var lit = function (k) { return all || muscles.indexOf(k) >= 0; };
+    var lit = heat ? function (k) { return heat[k] > 0 ? heat[k] : false; } : function (k) { return all || muscles.indexOf(k) >= 0; };
+    muscles = muscles || [];
     var label = muscles.length ? muscles.map(function (m) { return TW.MUSCLES[m]; }).join(', ') : 'Sin grupo';
     var big = size === 'big';
-    var fig = function (set, neutral) { return '<g>' + silhouette(b) + layer(set, lit, b, neutral) + '</g>'; };
+    var fig = function (set, neutral, det, cl) { return '<g>' + silhouette(b) + layer(set, lit, b, neutral) + details(det, b, cl) + '</g>'; };
     var hb = b.bust ? '<ellipse class="bust" cx="41" cy="52" rx="7" ry="6"/><ellipse class="bust" cx="59" cy="52" rx="7" ry="6"/>' : '';
     var defs = '<defs><linearGradient id="tw-hi" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFB04D"/><stop offset="1" stop-color="#F0600C"/></linearGradient>' +
-      '<linearGradient id="tw-lo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3C3C45"/><stop offset="1" stop-color="#2E2E36"/></linearGradient></defs>';
-    var labels = big ? '<text x="50" y="208" text-anchor="middle" class="cap">Frente</text><text x="160" y="208" text-anchor="middle" class="cap">Espalda</text>' : '';
-    return '<svg class="body ' + (size || 'mini') + '" viewBox="0 0 220 ' + (big ? 214 : 200) + '" role="img" aria-label="Grupos musculares (' + (sex === 'f' ? 'mujer' : 'hombre') + '): ' + label + '">' + defs +
-      '<g>' + fig(FRONT, NEUTRAL_FRONT).replace('</g></g>', hb + '</g></g>') + '</g>' +
-      '<g transform="translate(110 0)">' + fig(BACK, NEUTRAL_BACK) + '</g>' + labels + '</svg>';
+      '<linearGradient id="tw-lo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4A4A55"/><stop offset="1" stop-color="#2E2E36"/></linearGradient>' +
+      '<linearGradient id="tw-skin" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#17171C"/><stop offset=".3" stop-color="#34343D"/><stop offset=".5" stop-color="#3E3E48"/><stop offset=".7" stop-color="#34343D"/><stop offset="1" stop-color="#17171C"/></linearGradient>' +
+      '<filter id="tw-glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.1" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>';
+    var labels = big ? '<text x="50" y="212" text-anchor="middle" class="cap">Frente</text><text x="160" y="212" text-anchor="middle" class="cap">Espalda</text>' : '';
+    return '<svg class="body ' + (size || 'mini') + '" viewBox="0 0 220 ' + (big ? 218 : 204) + '" role="img" aria-label="Grupos musculares (' + (sex === 'f' ? 'mujer' : 'hombre') + '): ' + label + '">' + defs +
+      '<g>' + fig(FRONT, NEUTRAL_FRONT, DET_FRONT, 'M50 42 L50 96').replace('</g></g>', hb + '</g></g>') + '</g>' +
+      '<g transform="translate(110 0)">' + fig(BACK, NEUTRAL_BACK, DET_BACK, 'M50 36 L50 100') + '</g>' + labels + '</svg>';
   };
 
   /* Íconos de equipo: 48 × 48, trazo claro y acento dorado. */
