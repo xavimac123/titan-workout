@@ -234,3 +234,7 @@ a.linkbtn{background:var(--card2);border:1px solid var(--line);font-weight:700}
 .pmain{min-width:0}.pmain b{display:block}.pmain small{display:block}
 .peq{display:flex;align-items:center;gap:4px;margin-top:3px;flex-wrap:wrap}.peq em{font-size:.72rem;color:var(--gold);font-style:normal}
 .pact{display:flex;gap:6px;flex:none}.pact .sm{padding:7px 12px;font-size:.85rem;min-width:0}
+
+.wkbar{flex-direction:column-reverse}.wkbar i.x{background:var(--orange,#ff7a18)}
+.pill.ex{background:rgba(255,122,24,.2);border-color:var(--orange,#ff7a18);color:var(--orange,#ff7a18);font-size:.65rem;padding:1px 7px;vertical-align:middle}
+.xt2{color:var(--orange,#ff7a18)}

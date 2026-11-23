@@ -62,7 +62,7 @@
       list.forEach(function (e) {
         var idx = order.indexOf(e), done = doneCount(e) >= (e.type === 'fuerza' ? e.sets : 1);
         out += '<div class="xrow' + (done ? ' done' : '') + '"><button class="xmain" data-a="runAt" data-i="' + idx + '"><span class="xn">' + (done ? '✓' : ++n) + '</span>' +
-          '<span class="xt"><b>' + esc(TW.exName(e)) + '</b><small>' + esc(e.name) + ' · ' + muscleNames(e) + '</small></span><span class="xm">' + exSub(e) + '<small>~' + estMin(e) + ' min</small></span></button>' + infoBtn(e) + '</div>';
+          '<span class="xt"><b>' + esc(TW.exName(e)) + (isExtra(weekDates(0)[selDay], e.id) ? ' <span class="pill ex">Extra</span>' : '') + '</b><small>' + esc(e.name) + ' · ' + muscleNames(e) + '</small></span><span class="xm">' + exSub(e) + '<small>~' + estMin(e) + ' min</small></span></button>' + infoBtn(e) + '</div>';
       });
     });
     return out;
@@ -133,15 +133,11 @@
   }
   function extrasHTML(info) {
     var plan = info.exs.reduce(function (a, e) { return a + TW.estMin(e); }, 0);
-    var rem = (S.profile.minutes || 20) - plan;
-    if (rem < 4) return '';
-    var list = TW.extras(S, info.exs, rem);
-    return '<article class="card"><h3>Si te da el tiempo <small>+' + rem + ' min libres</small></h3>' +
-      '<p class="meta">Opcional. Suma una serie más a tus ejercicios principales o añade uno de estos del mismo grupo muscular:</p>' +
-      list.map(function (e) {
-        return '<div class="extra"><div><b>' + esc(TW.exName(e)) + '</b><small class="es">' + esc(muscleNames(e)) + ' · ~' + TW.estMin(e) + ' min</small></div>' +
-          '<button class="ghost" data-a="addExtra" data-ex="' + e.id + '">Añadir</button></div>';
-      }).join('') + '</article>';
+    var rem = (S.profile.minutes || 20) - plan, top = urgency()[0];
+    var date = weekDates(0)[selDay], n = ((S.extras || {})[date] || []).length;
+    return '<article class="card"><h3>Ejercicios adicionales' + (rem >= 4 ? ' <small>+' + rem + ' min libres</small>' : '') + '</h3>' +
+      '<p class="meta">Tú eliges: se abre el listado por grupo muscular. Zona que más lo necesita esta semana: <b>' + TW.MUSCLES[top.k] + '</b>.' + (n ? ' Hoy llevas ' + n + ' extra.' : '') + ' El tiempo extra se registra y se reporta en Inicio.</p>' +
+      '<button class="wide ghost" data-a="openPicker" data-extra="1">Elegir ejercicios adicionales</button></article>';
   }
   function addExPhoto(file, id) {
     if (!file) return;
@@ -316,7 +312,24 @@
       if (l.flexDone) est += 5;
     });
     var act = sess ? Math.round((sess.e - sess.s) / 60000) : 0;
-    return Math.min(120, Math.round(Math.max(act, est)));
+    return Math.min(150, Math.round(Math.max(act, est)) + ((S.extraMin || {})[date] || 0));
+  }
+  function isExtra(date, id) { return ((S.extras || {})[date] || []).indexOf(id) >= 0; }
+  function planMin(i) {
+    var date = weekDates(0)[i], d = S.week[i];
+    if (!d) return 0;
+    return d.exs.reduce(function (a, id) { var e = TW.getEx(S, id); return a + (e && !isExtra(date, id) ? estMin(e) : 0); }, 0);
+  }
+  function markExtra(id) {
+    var date = weekDates(0)[selDay]; S.extras = S.extras || {};
+    (S.extras[date] = S.extras[date] || []).push(id);
+  }
+  function timeCardHTML(canLog) {
+    var date = weekDates(0)[selDay], real = dayMinutes(date), plan = planMin(selDay), ex = Math.max(0, real - plan);
+    var n = ((S.extras || {})[date] || []).length;
+    return '<article class="card"><h3>Tiempo de hoy</h3><div class="stats3"><div><small>Plan</small><b>' + plan + '</b></div><div><small>Real</small><b>' + real + '</b></div><div><small>Extra</small><b>' + (ex ? '+' + ex : '0') + '</b></div></div>' +
+      '<p class="meta">Minutos. El tiempo real se registra solo al marcar series' + (n ? ' · ' + n + ' ejercicio' + (n > 1 ? 's' : '') + ' extra añadido' + (n > 1 ? 's' : '') : '') + '. Si entrenaste algo más que no marcaste, súmalo:</p>' +
+      (canLog ? '<div class="grid2"><button class="ghost" data-a="addMin" data-m="5">+5 min</button><button class="ghost" data-a="addMin" data-m="10">+10 min</button></div>' : '') + '</article>';
   }
   function weekDates(offset) {
     var st = TW.addDays(TW.weekStart(new Date()), (offset || 0) * 7);
@@ -429,17 +442,18 @@
       if (plan) planned++;
       if (plan && did) done++;
       total += m;
-      return { i: i, plan: plan, did: did, m: m, today: i === ti };
+      var pm = planMin(i);
+      return { i: i, plan: plan, did: did, m: m, pm: pm, x: Math.max(0, m - pm), today: i === ti };
     });
     prev.forEach(function (d) { last += dayMinutes(d); });
     var maxM = Math.max(20, days.reduce(function (a, d) { return Math.max(a, d.m); }, 0));
     var info = TW.dayInfo(S, S.week[ti]);
     var cta = info.exs.length ? (days[ti].did ? 'Continuar entrenamiento' : 'Iniciar entrenamiento') : 'Hoy descansas · ver Hoy';
     var cols = days.map(function (d) {
-      return '<div class="wkcol' + (d.today ? ' today' : '') + '"><div class="wkbar"><i style="height:' + Math.round(d.m / maxM * 100) + '%"></i></div>' +
+      return '<div class="wkcol' + (d.today ? ' today' : '') + '"><div class="wkbar"><i style="height:' + Math.round(Math.min(d.m, d.pm || d.m) / maxM * 100) + '%"></i>' + (d.x && d.pm ? '<i class="x" style="height:' + Math.round(d.x / maxM * 100) + '%"></i>' : '') + '</div>' +
         '<b>' + TW.DOW[d.i] + '</b><small>' + (d.m ? d.m + ' min' : d.plan ? '·' : '–') + '</small></div>';
     }).join('');
-    var diff = total - last;
+    var diff = total - last, planTot = days.reduce(function (a, d) { return a + d.pm; }, 0), xTot = days.reduce(function (a, d) { return a + d.x; }, 0);
     view.innerHTML = '<section class="page"><h2 class="title">Inicio</h2>' +
       '<article class="card hero"><div class="hero-l">' + ringHTML(planned ? Math.round(done / planned * 100) : 0) +
       '</div><div class="hero-r"><p class="lbl">Esta semana</p><p class="big">' + done + '/' + planned + ' <small>días</small></p>' +
@@ -450,7 +464,7 @@
       (tgt ? '<div class="pbar"><i style="width:' + pct + '%"></i></div><p class="meta">' + pct + '% del camino · ' + (cur > tgt ? 'faltan ' + (Math.round((cur - tgt) * 10) / 10) + ' kg' : 'meta alcanzada') + '</p>' : '<p class="meta">Define tu peso objetivo en Ajustes.</p>') +
       '<p class="meta">Objetivo: ' + esc(TW.GOALS[p.goal] || '') + ' · ' + (p.days || 4) + ' días/semana · ' + (p.minutes || 20) + ' min por sesión</p></article>' +
       '<article class="card"><h3>Tiempo entrenado</h3><div class="wkgrid">' + cols + '</div>' +
-      '<p class="meta"><b>' + total + ' min</b> esta semana' + (last ? ' · semana pasada ' + last + ' min (' + (diff >= 0 ? '+' : '') + diff + ')' : '') + '</p></article>' +
+      '<p class="meta"><b>' + total + ' min</b> esta semana' + (planTot ? ' · plan ' + planTot + (xTot ? ' · <b class="xt2">+' + xTot + ' min extra</b>' : '') : '') + (last ? ' · semana pasada ' + last + ' min (' + (diff >= 0 ? '+' : '') + diff + ')' : '') + '</p></article>' +
       muscleChartHTML() + quoteHTML() +
       '<div class="row"><a class="ghost linkbtn" href="#ruta">Ver ruta</a><a class="ghost linkbtn" href="#semana">Editar semana</a></div></section>';
   }
@@ -484,7 +498,7 @@
     var body = info.exs.length
       ? overviewHTML(info) + ringHTML(pct) + '<p class="meta">' + done + '/' + total + ' series completadas' + (canLog ? '' : ' · solo puedes registrar el día de hoy') + '</p>' +
         rowsHTML(info.exs, canLog) + extrasHTML(info) +
-        '<button class="wide ghost" data-a="openPicker">+ Añadir ejercicio</button>' +
+        (canLog ? timeCardHTML(canLog) : '') +
         '<button class="wide" data-a="finishDay" data-d="' + selDay + '"' + (canLog ? '' : ' disabled') + '>Terminar día</button>'
       : restDayHTML();
     view.innerHTML = '<section class="page"><nav class="dows">' + dows + '</nav>' +
@@ -684,6 +698,8 @@
         if (r && r.advanced) msgs.push(e.name + ' → ' + r.to);
       }
     });
+    var ss = (S.sess || {})[date], nw = Date.now();
+    if (ss && nw - ss.e <= 10 * 60000) ss.e = nw;
     save(); renderToday();
     toast(msgs.length ? 'Escalera avanzada: ' + msgs.join('; ') : 'Día terminado');
   }
@@ -1464,11 +1480,12 @@
     saveBody: saveBody,
     saveSleep: saveSleep,
     info: function (el, d) { openInfo(d.ex); },
-    addExtra: function (el, d) { S.week[selDay].exs.push(d.ex); activate(d.ex); save(); renderToday(); toast('Ejercicio añadido a hoy'); },
+
     openPicker: function () { pick = { g: null, p: 'all' }; openPicker(); },
     pickG: function (el, d) { pick.g = d.g; pick.p = 'all'; openPicker(); },
     pickP: function (el, d) { pick.p = d.p; openPicker(); },
-    addPick: function (el, d) { S.week[selDay].exs.push(d.ex); activate(d.ex); save(); closeSheet(); renderToday(); toast('Ejercicio añadido a hoy'); },
+    addPick: function (el, d) { S.week[selDay].exs.push(d.ex); markExtra(d.ex); activate(d.ex); save(); closeSheet(); renderToday(); toast('Ejercicio extra añadido a hoy'); },
+    addMin: function (el, d) { var k = today(); S.extraMin = S.extraMin || {}; S.extraMin[k] = (S.extraMin[k] || 0) + Number(d.m); touchSession(); save(); renderToday(); toast('+' + d.m + ' min registrados'); },
     delExPhoto: function (el, d) { if (S.exPhotos) delete S.exPhotos[d.ex]; save(); openInfo(d.ex); },
     startTraining: function () {
       var d = today(); S.sess = S.sess || {};
