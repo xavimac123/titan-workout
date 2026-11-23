@@ -71,6 +71,43 @@
     var sd = Math.sqrt(beds.reduce(function (s, x) { return s + Math.pow(x - mean, 2); }, 0) / beds.length);
     return { nights: recent.length, avgH: Math.round(avg / 6) / 10, lastH: Math.round(durs[durs.length - 1] / 6) / 10, bedSdMin: Math.round(sd) };
   };
+  /* Puntaje de sueño (estimación orientativa, no clínica):
+     duración 40 % (7–9 h, consenso AASM/SRS) · regularidad 25 % (desv. de hora de dormir y despertar, ≤30 min = pleno)
+     · horario 20 % (dormir 21:00–00:30, despertar 05:00–08:30; criterio práctico de luz matinal) · percepción 15 %. */
+  var clamp100 = function (x) { return Math.max(0, Math.min(100, x)); };
+  var sdOf = function (a) { var m = a.reduce(function (s, x) { return s + x; }, 0) / a.length; return Math.sqrt(a.reduce(function (s, x) { return s + (x - m) * (x - m); }, 0) / a.length); };
+  var durOf = function (e) { return ((toMin(e.wake) - toMin(e.bed)) + 1440) % 1440; };
+  var bedAdj = function (e) { var m = toMin(e.bed); return m < 720 ? m + 1440 : m; };
+  var distTo = function (v, lo, hi) { return v < lo ? lo - v : v > hi ? v - hi : 0; };
+  var timingOf = function (e) {
+    var b = distTo(bedAdj(e), 1260, 1470), w = distTo(toMin(e.wake), 300, 510);
+    return clamp100(100 - ((b + w) / 2) / 180 * 100);
+  };
+  var durScore = function (m) { var h = m / 60; return clamp100(h >= 7 && h <= 9 ? 100 : h < 7 ? (h - 4) / 3 * 100 : (11 - h) / 2 * 100); };
+  var QS = { 1: 20, 3: 60, 5: 100 };
+  var lab = function (s) { return s >= 80 ? 'Excelente' : s >= 65 ? 'Buena' : s >= 45 ? 'Regular' : 'Baja'; };
+  TW.sleepScore = function (entries) {
+    var all = (entries || []).slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    if (!all.length) return null;
+    var win = all.slice(-7), last = win[win.length - 1], reg = null, circ = null;
+    if (win.length >= 3) {
+      var sdB = sdOf(win.map(bedAdj)), sdW = sdOf(win.map(function (e) { return toMin(e.wake); }));
+      reg = clamp100(100 - (((sdB + sdW) / 2) - 30) / 90 * 100);
+    }
+    var tim = timingOf(last), dur = durScore(durOf(last)), per = QS[last.q] != null ? QS[last.q] : 60;
+    var parts = [['Duración', dur, 0.4], ['Regularidad', reg, 0.25], ['Horario', tim, 0.2], ['Percepción', per, 0.15]];
+    var w = parts.reduce(function (s, p) { return s + (p[1] == null ? 0 : p[2]); }, 0);
+    var score = Math.round(parts.reduce(function (s, p) { return s + (p[1] == null ? 0 : p[1] * p[2]); }, 0) / w);
+    var capH = durOf(last) < 360 ? 55 : durOf(last) < 420 ? 64 : 100; score = Math.min(score, capH);
+    if (reg != null) {
+      var ct = win.reduce(function (s, e) { return s + timingOf(e); }, 0) / win.length, cs = Math.round(reg * 0.6 + ct * 0.4);
+      circ = { score: cs, label: cs >= 80 ? 'Alineado' : cs >= 55 ? 'En ajuste' : 'Desajustado' };
+    }
+    var avg = win.reduce(function (s, e) { return s + durOf(e); }, 0) / win.length;
+    return { last: last, durMin: durOf(last), score: score, label: lab(score), partial: reg == null, circ: circ, avgH: Math.round(avg / 6) / 10, nights: win.length,
+      parts: parts.map(function (p) { return { k: p[0], v: p[1] == null ? null : Math.round(p[1]) }; }),
+      series: win.map(function (e) { return { date: e.date, durMin: durOf(e) }; }) };
+  };
   /* Carga inicial orientativa: posición dentro de las cargas disponibles según experiencia.
      No usa 1RM (no lo conocemos); se ajusta con la doble progresión tras 1–2 sesiones. */
   TW.EXP = { principiante: { label: 'Principiante', frac: 0.3 }, retomando: { label: 'He entrenado y retomo', frac: 0.5 }, experto: { label: 'Experto', frac: 0.7 } };

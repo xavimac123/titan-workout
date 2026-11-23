@@ -509,8 +509,68 @@
       '<p class="meta">Objetivo: ' + esc(TW.GOALS[p.goal] || '') + ' · ' + (p.days || 4) + ' días/semana · ' + (p.minutes || 20) + ' min por sesión</p></article>' +
       '<article class="card"><h3>Tiempo entrenado</h3><div class="wkgrid">' + cols + '</div>' +
       '<p class="meta"><b>' + total + ' min</b> esta semana' + (planTot ? ' · plan ' + planTot + (xTot ? ' · <b class="xt2">+' + xTot + ' min extra</b>' : '') : '') + (last ? ' · semana pasada ' + last + ' min (' + (diff >= 0 ? '+' : '') + diff + ')' : '') + '</p></article>' +
-      muscleChartHTML() + quoteHTML() +
+      sleepCardHTML() + muscleChartHTML() + quoteHTML() +
       '<div class="row"><a class="ghost linkbtn" href="#ruta">Ver ruta</a><a class="ghost linkbtn" href="#semana">Editar semana</a></div></section>';
+  }
+
+  /* ---------- Tarjeta de sueño (Inicio) ---------- */
+  function skyHTML() {
+    var A = [[0, '#0a0f2c'], [5, '#1b2250'], [6, '#e8895a'], [7, '#7fc0ee'], [12, '#4aa3e6'], [17, '#7fb2e0'], [18, '#e0714e'], [19, '#3b2f5e'], [20, '#0a0f2c'], [24, '#0a0f2c']];
+    var kt = A.map(function (a) { return (a[0] / 24).toFixed(3); }).join(';'), cols = A.map(function (a) { return a[1]; }).join(';');
+    var arc = function (f) { return [Math.round(20 + 280 * f), Math.round(88 - 62 * Math.sin(Math.PI * f))]; };
+    var sunV = [], moonV = [], t = [];
+    for (var h = 0; h <= 24; h++) {
+      t.push((h / 24).toFixed(4));
+      var fs = (h - 6) / 12, fm = (((h - 18) % 24) + 24) % 24 / 12;
+      sunV.push(fs >= 0 && fs <= 1 ? arc(fs).join(' ') : (h < 6 ? '20 125' : '300 125'));
+      moonV.push(fm >= 0 && fm <= 1 ? arc(fm).join(' ') : (fm < 0 ? '20 125' : '300 125'));
+    }
+    var now = new Date(), off = -((now.getHours() + now.getMinutes() / 60) / 24 * 16).toFixed(2), dur = '16s';
+    var tt = t.join(';'), an = function (attr, vals, k) { return '<animate attributeName="' + attr + '" values="' + vals + '" keyTimes="' + k + '" dur="' + dur + '" begin="' + off + 's" repeatCount="indefinite"/>'; };
+    var tr = function (v) { return '<animateTransform attributeName="transform" type="translate" values="' + v.join(';') + '" keyTimes="' + tt + '" dur="' + dur + '" begin="' + off + 's" repeatCount="indefinite"/>'; };
+    var stars = [[30, 14], [70, 30], [110, 12], [150, 26], [190, 10], [230, 32], [270, 16], [300, 34], [50, 48], [210, 52]].map(function (p, i) {
+      return '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="1.3" fill="#fff"><animate attributeName="opacity" values="1;.35;1" dur="' + (2 + i % 3) + 's" repeatCount="indefinite"/></circle>';
+    }).join('');
+    return '<svg class="skyw" viewBox="0 0 320 110" role="img" aria-label="Animación de día y noche"><rect width="320" height="110" fill="#0a0f2c">' + an('fill', cols, kt) + '</rect>' +
+      '<g>' + stars + an('opacity', '1;1;0;0;0;1;1', '0;.2;.27;.5;.73;.8;1') + '</g>' +
+      '<g><g><circle r="22" fill="#ffd25e" opacity=".25"/><circle r="11" fill="#ffd25e"/>' + tr(sunV) + '</g></g>' +
+      '<g><g><circle r="9" fill="#e9ecff"/><circle cx="-3" cy="-2" r="2" fill="#c9cdee"/><circle cx="3" cy="3" r="1.5" fill="#c9cdee"/>' + tr(moonV) + '</g></g>' +
+      '<path d="M0 98 Q60 84 120 95 T240 92 T320 96 V110 H0Z" fill="#0f1014"/></svg>';
+  }
+  function fmtDur(m) { return Math.floor(m / 60) + ' h ' + (m % 60 ? (m % 60) + ' min' : ''); }
+  function sleepGoalText(r) {
+    var out = [];
+    out.push(r.avgH >= 7 ? 'Con ' + r.avgH + ' h de promedio estás en el rango recomendado (7 h o más). Para tu meta de bajar grasa sin perder músculo, es el mínimo que conviene sostener: en un ensayo con dieta hipocalórica, dormir 5,5 h en vez de 8,5 h redujo 55 % la grasa perdida y aumentó 60 % la masa magra perdida (estudio pequeño, 10 personas).'
+      : 'Tu promedio de ' + r.avgH + ' h está bajo las 7 h recomendadas. Dormir poco frena la pérdida de grasa y favorece perder músculo cuando hay déficit de calorías (ensayo pequeño de 10 personas). Acerca tu hora de dormir 15–30 min por semana.');
+    if (r.circ) out.push(r.circ.label === 'Alineado' ? 'Tus horarios son regulares: eso ayuda a fijar tu ritmo circadiano. En un estudio con 60 000 personas, la regularidad predijo mejor la mortalidad que la duración.' : 'Tus horarios varían: lo que más corrige el ritmo circadiano es acostarte y levantarte a la misma hora (±30 min), también en fin de semana, y recibir luz natural al despertar.');
+    else out.push('Registra al menos 3 noches para medir la regularidad de tu ritmo circadiano.');
+    return out.map(function (t) { return '<p class="meta">' + t + '</p>'; }).join('');
+  }
+  function sleepCardHTML() {
+    var arr = S.sleep || [], d = today(), cur = arr.filter(function (x) { return x.date === d; })[0] || {}, r = TW.sleepScore(arr), res = '';
+    if (r) {
+      var isToday = r.last.date === d;
+      var bars = r.parts.map(function (p) { return p.v == null ? '' : '<div class="ms"><span>' + p.k + '</span><div class="pbar small"><i style="width:' + p.v + '%"></i></div><b>' + p.v + '</b></div>'; }).join('');
+      var mx = Math.max(600, r.series.reduce(function (a, x) { return Math.max(a, x.durMin); }, 0)), nb = r.series.map(function (x) {
+        var ok = x.durMin >= 420 && x.durMin <= 540;
+        return '<div class="slb"><i class="' + (ok ? 'ok' : '') + '" style="height:' + Math.round(x.durMin / mx * 100) + '%"></i><small>' + x.date.slice(8) + '</small></div>';
+      }).join('');
+      res = '<div class="slres"><div class="slbig"><small>' + (isToday ? 'Anoche' : 'Última noche · ' + r.last.date.slice(5)) + '</small><b>' + fmtDur(r.durMin) + '</b>' +
+        '<span class="pill sl ' + r.label.toLowerCase() + '">Calidad ' + r.label + ' · ' + r.score + '</span></div>' +
+        (r.circ ? '<p class="circ ' + (r.circ.label === 'Alineado' ? 'ok' : r.circ.label === 'En ajuste' ? 'mid' : 'bad') + '">Ritmo circadiano: <b>' + r.circ.label + '</b> (' + r.circ.score + '/100)</p>' : '<p class="meta">Ritmo circadiano: registra 3 noches para medirlo.</p>') +
+        bars + '<p class="lbl">Últimas noches (verde = 7–9 h)</p><div class="slbars">' + nb + '</div>' +
+        '<p class="lbl">Tu aporte al objetivo</p>' + sleepGoalText(r) +
+        '<p class="meta"><em>Estimación orientativa a partir de lo que registras (duración, regularidad, horario y cómo te sentiste); no es un diagnóstico.</em></p></div>';
+    }
+    return '<article class="card sleepcard"><h3>Sueño</h3>' + skyHTML() +
+      '<div class="grid2"><label class="field">Me acosté<input type="time" id="sleepBed" value="' + (cur.bed || '') + '"></label>' +
+      '<label class="field">Me levanté<input type="time" id="sleepWake" value="' + (cur.wake || '') + '"></label></div>' +
+      '<label class="field">Cómo me sentí al despertar<select id="sleepQ"><option value="1"' + (cur.q === 1 ? ' selected' : '') + '>Mal</option><option value="3"' + (cur.q == null || cur.q === 3 ? ' selected' : '') + '>Regular</option><option value="5"' + (cur.q === 5 ? ' selected' : '') + '>Bien</option></select></label>' +
+      '<button class="wide" data-a="saveSleep">' + (cur.bed ? 'Actualizar sueño de hoy' : 'Registrar sueño') + '</button>' + res +
+      '<details class="srcbox"><summary>Fuentes</summary><ul class="plain">' +
+      '<li><a href="https://pubmed.ncbi.nlm.nih.gov/25979105/" target="_blank" rel="noopener">AASM y SRS 2015: 7 h o más de sueño regular</a></li>' +
+      '<li><a href="https://pubmed.ncbi.nlm.nih.gov/20921542/" target="_blank" rel="noopener">Nedeltcheva 2010: sueño insuficiente y pérdida de grasa</a></li>' +
+      '<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10782501/" target="_blank" rel="noopener">Windred 2024: regularidad del sueño y mortalidad</a></li></ul></details></article>';
   }
 
   /* ---------- HOY ---------- */
@@ -1022,7 +1082,7 @@
     var d = today();
     S.sleep = (S.sleep || []).filter(function (x) { return x.date !== d; });
     S.sleep.push({ date: d, bed: bed, wake: wake, q: q });
-    save(); renderProgress(); toast('Sueño registrado');
+    save(); route(); toast('Sueño registrado');
   }
   function saveBody() {
     var kg = Number($('#bodyKg').value), waist = Number($('#bodyWaist').value) || null;

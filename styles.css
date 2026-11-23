@@ -291,3 +291,11 @@ button.sm{padding:6px 12px;min-width:0;font-size:.85rem}
 .pill.md{font-size:.72rem}.pill.md.pc{color:#9be3a8;border-color:#3d7a4d}.pill.md.bd{color:#3FD8C8;border-color:#2a8a80}.pill.md.eq{color:var(--gold);border-color:var(--gold)}.pill.md.gy{color:#c9a0ff;border-color:#7a58aa}
 .pill.ld{color:var(--gold);border-color:var(--gold);font-size:.72rem}
 .srcbox{margin:10px 0;border:1px solid var(--line);border-radius:12px;padding:8px 12px}.srcbox summary{cursor:pointer;color:var(--mut)}.srcbox a{color:var(--gold);word-break:break-word}
+
+/* Sueño */
+.skyw{width:100%;height:auto;border-radius:14px;display:block;margin:6px 0 10px}
+.slres{margin-top:12px}.slbig{display:flex;flex-direction:column;align-items:flex-start;gap:2px;margin-bottom:6px}.slbig small{color:var(--mut)}.slbig b{font-family:var(--cond);font-size:2.4rem;line-height:1;color:var(--gold)}
+.pill.sl{margin-top:4px}.pill.sl.excelente,.pill.sl.buena{color:#9be3a8;border-color:#3d7a4d}.pill.sl.regular{color:var(--gold);border-color:var(--gold)}.pill.sl.baja{color:#ff8a7a;border-color:#a84a3d}
+.circ{margin:8px 0;padding:8px 12px;border-radius:12px;border:1px solid var(--line)}.circ.ok{border-color:#3d7a4d;background:rgba(61,122,77,.14)}.circ.mid{border-color:var(--gold);background:rgba(255,200,80,.08)}.circ.bad{border-color:#a84a3d;background:rgba(168,74,61,.14)}
+.slres .ms{display:grid;grid-template-columns:96px 1fr 28px;gap:8px;align-items:center;font-size:.85rem}.slres .ms b{text-align:right}
+.slbars{display:flex;gap:6px;align-items:flex-end;height:70px}.slb{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px}.slb i{width:100%;border-radius:6px 6px 2px 2px;background:#4a4a58;min-height:4px}.slb i.ok{background:#4caf6a}.slb small{color:var(--mut);font-size:.65rem}
