@@ -54,18 +54,20 @@
       '<button class="wide" data-a="startRun">Iniciar sesión</button></article>';
   }
   function rowsHTML(exs, canLog) {
-    var order = orderedExs(exs), out = '', n = 0;
-    BLOCKS.forEach(function (b) {
-      var list = order.filter(function (e) { return blockOf(e) === b.id; });
-      if (!list.length) return;
-      out += '<h3 class="blk">' + b.name + ' <small>~' + list.reduce(function (a, e) { return a + estMin(e); }, 0) + ' min</small></h3>';
-      list.forEach(function (e) {
-        var idx = order.indexOf(e), done = doneCount(e) >= (e.type === 'fuerza' ? e.sets : 1);
-        out += '<div class="xrow' + (done ? ' done' : '') + '"><button class="xmain" data-a="runAt" data-i="' + idx + '"><span class="xn">' + (done ? '✓' : ++n) + '</span>' +
-          '<span class="xt"><b>' + esc(TW.exName(e)) + (isExtra(weekDates(0)[selDay], e.id) ? ' <span class="pill ex">Extra</span>' : '') + '</b><small>' + esc(e.name) + ' · ' + muscleNames(e) + '</small></span><span class="xm">' + exSub(e) + '<small>~' + estMin(e) + ' min</small></span></button>' + infoBtn(e) + '</div>';
-      });
+    var order = orderedExs(exs), out = '', n = 0, date = weekDates(0)[selDay], last = '';
+    out += '<div class="xlist">';
+    order.forEach(function (e, idx) {
+      var b = blockOf(e), done = doneCount(e) >= (e.type === 'fuerza' ? e.sets : 1);
+      if (b !== last) { last = b; var bl = BLOCKS.filter(function (x) { return x.id === b; })[0]; out += '<p class="xblk">' + esc(bl ? bl.name : '') + '</p>'; }
+      var sub = TW.EX_EN[e.id] ? e.name : muscleNames(e);
+      out += '<div class="xr' + (done ? ' done' : '') + '"><button class="xmain" data-a="runAt" data-i="' + idx + '"><span class="xn">' + (done ? '✓' : ++n) + '</span>' +
+        '<span class="xt"><b>' + esc(TW.exName(e)) + '</b><small>' + esc(sub) + (isExtra(date, e.id) ? ' · extra' : '') + '</small></span><span class="xm">' + exSub(e) + '</span></button>' + infoBtn(e) + '</div>';
     });
-    return out;
+    return out + '</div>';
+  }
+  function runFig(e) {
+    var svg = TW.animSVG ? TW.animSVG(e) : '';
+    return svg ? '<div class="runanim">' + svg + '</div>' : '<div class="runfig small">' + bsvg(e.muscles, 'big') + '</div>';
   }
   function renderRun() {
     var info = TW.dayInfo(S, S.week[selDay]), order = orderedExs(info.exs), n = order.length, i = TW.clamp(run.i, 0, n + 1);
@@ -79,8 +81,8 @@
         (order[0] ? '<p class="meta">Sigue: <b>' + esc(TW.exName(order[0])) + '</b></p>' : '');
     } else if (i <= n) {
       var e = order[i - 1], nx = order[i];
-      body = '<p class="meta">Ejercicio ' + i + ' de ' + n + ' · ' + esc(muscleNames(e)) + '</p><div class="runfig">' + bsvg(e.muscles, 'big') + '</div>' +
-        exCard(e, true) + '<p class="how">' + esc(TW.exHow(e)) + '</p>' +
+      body = '<p class="meta">Ejercicio ' + i + ' de ' + n + ' · ' + esc(muscleNames(e)) + '</p>' + runFig(e) +
+        exCard(e, true) + '<details class="more"><summary>Cómo hacerlo</summary><p class="how">' + esc(TW.exHow(e)) + '</p></details>' +
         (nx ? '<p class="meta">Sigue: <b>' + esc(TW.exName(nx)) + '</b></p>' : '<p class="meta">Este es el último ejercicio.</p>');
     } else {
       body = '<h2 class="title">¡Sesión completa!</h2><article class="card"><h3>Vuelta a la calma</h3><ul class="plain"><li>Camina 2–3 min para bajar pulsaciones.</li><li>Estira 20–30 s los grupos que trabajaste.</li><li>Bebe agua y anota cómo te sentiste.</li></ul></article>' +
@@ -355,7 +357,14 @@
   function touchSession() {
     var d = today(), n = Date.now();
     S.sess = S.sess || {};
-    if (!S.sess[d]) S.sess[d] = { s: n - 60000, e: n }; else S.sess[d].e = n;
+    if (!S.sess[d]) S.sess[d] = { s: n - 60000, e: n }; else { S.sess[d].e = n; S.sess[d].fin = false; }
+  }
+  function clock(ts) { var d = new Date(ts); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+  function fmtMin(m) { return m >= 60 ? Math.floor(m / 60) + ' h ' + (m % 60 ? (m % 60) + ' min' : '') : m + ' min'; }
+  function monthMinutes() {
+    var pre = today().slice(0, 7), set = {};
+    Object.keys(S.sess || {}).concat((S.logs || []).map(function (l) { return l.date; }), Object.keys(S.extraMin || {})).forEach(function (d) { if (d.indexOf(pre) === 0) set[d] = 1; });
+    return Object.keys(set).reduce(function (a, d) { return a + dayMinutes(d); }, 0);
   }
   function dayMinutes(date) {
     var sess = (S.sess || {})[date], est = 0;
@@ -473,6 +482,58 @@
   }
   function skipTimer() { clearInterval(restIv); $('#restBar').classList.add('hidden'); }
 
+
+  /* ---------- cronómetro circular (ejercicios por tiempo) ---------- */
+  var tmr = null;
+  function tmrDraw() {
+    var t = tmr, left = Math.max(0, Math.ceil((t.end - Date.now()) / 1000)), tot = t.phase === 'prep' ? 5 : t.total, C = 2 * Math.PI * 90;
+    $('#tmrNum').textContent = t.phase === 'prep' ? left : TW.fmt(left);
+    $('#tmrRing').setAttribute('stroke-dashoffset', String(C * (1 - left / tot)));
+    $('#tmrPhase').textContent = t.phase === 'prep' ? 'Prepárate' : (t.paused ? 'En pausa' : 'Mantén');
+    return left;
+  }
+  function openTimer(sec, label, ctx) {
+    clearInterval(tmrIv);
+    tmr = { total: sec, label: label, ctx: ctx || null, phase: 'prep', end: Date.now() + 5000, paused: false, left: 0 };
+    var C = (2 * Math.PI * 90).toFixed(1);
+    $('#tmrBody').innerHTML = '<p class="lbl">' + esc(label) + '</p><div class="ring"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="90" class="rbg"/>' +
+      '<circle id="tmrRing" cx="100" cy="100" r="90" class="rfg" stroke-dasharray="' + C + '" stroke-dashoffset="0" transform="rotate(-90 100 100)"/></svg>' +
+      '<div class="rc"><b id="tmrNum">5</b><span id="tmrPhase">Prepárate</span></div></div>' +
+      '<div class="tmrbtns"><button class="ghost" data-a="tmrPause" id="tmrPauseBtn">Pausa</button><button data-a="tmrDone">' + (ctx ? 'Terminar y guardar' : 'Terminar') + '</button></div>' +
+      '<button class="lnk" data-a="tmrCancel">Cancelar</button>';
+    $('#tmr').classList.remove('hidden');
+    beep(520, 80);
+    try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function (w) { tmr.wl = w; }, function () {}); } catch (err) {}
+    tmrDraw();
+    tmrIv = setInterval(tmrTick, 250);
+  }
+  var tmrIv = null, lastBeep = -1;
+  function tmrTick() {
+    if (!tmr || tmr.paused) return;
+    var left = tmrDraw();
+    if (left > 0 && left <= 3 && lastBeep !== left + tmr.phase) { lastBeep = left + tmr.phase; beep(660, 120); }
+    if (left <= 0) {
+      if (tmr.phase === 'prep') { tmr.phase = 'go'; tmr.end = Date.now() + tmr.total * 1000; beep(880, 300); if (navigator.vibrate) navigator.vibrate(150); tmrDraw(); }
+      else tmrFinish(tmr.total);
+    }
+  }
+  function tmrClose() {
+    clearInterval(tmrIv); try { if (tmr && tmr.wl) tmr.wl.release(); } catch (err) {}
+    $('#tmr').classList.add('hidden'); tmr = null;
+  }
+  function tmrFinish(secs) {
+    var t = tmr; if (!t) return;
+    beep(880, 600); if (navigator.vibrate) navigator.vibrate([250, 100, 250]);
+    tmrClose();
+    if (t.ctx) {
+      var e = TW.getEx(S, t.ctx.exId), L = getLog(today(), e.id, true);
+      L.sets[t.ctx.idx] = { reps: Math.max(1, Math.round(secs)), load: null, rpe: null };
+      for (var i = 0; i < e.sets; i++) { if (L.sets[i] === undefined) L.sets[i] = null; }
+      touchSession(); save(); if (run) renderRun(); else renderToday(); toast('Serie guardada: ' + Math.round(secs) + ' s');
+      if (e.rest) startTimer(e.rest, 'Descanso');
+    } else toast(t.label + ' terminado');
+  }
+
   /* ---------- enrutado ---------- */
   function route() {
     var name = (location.hash.slice(1) || 'inicio').split('?')[0];
@@ -556,6 +617,16 @@
   }
 
   /* ---------- INICIO (dashboard) ---------- */
+  function timeTilesHTML(days, total) {
+    var todayM = dayMinutes(today()), ss = (S.sess || {})[today()];
+    var hist = Object.keys(S.sess || {}).sort().reverse().slice(0, 7).map(function (d) {
+      var x = S.sess[d];
+      return '<li><span>' + d.slice(5) + '</span><span>' + clock(x.s) + ' → ' + (x.fin ? clock(x.e) : 'en curso') + '</span><b>' + fmtMin(dayMinutes(d)) + '</b></li>';
+    }).join('');
+    return '<div class="stats3 tt"><div><small>Hoy</small><b>' + fmtMin(todayM) + '</b></div><div><small>Semana</small><b>' + fmtMin(total) + '</b></div><div><small>Mes</small><b>' + fmtMin(monthMinutes()) + '</b></div></div>' +
+      (ss ? '<p class="meta">Hoy: inicio <b>' + clock(ss.s) + '</b> · ' + (ss.fin ? 'fin <b>' + clock(ss.e) + '</b>' : 'sesión en curso') + '</p>' : '<p class="meta">Hoy aún no iniciaste sesión.</p>') +
+      (hist ? '<details class="more"><summary>Historial de sesiones</summary><ul class="hist">' + hist + '</ul></details>' : '');
+  }
   function renderHome() {
     var p = S.profile, ti = todayIdx(), dates = weekDates(0), prev = weekDates(-1);
     var start = (S.body[0] && S.body[0].kg) || p.weight, cur = TW.metric(S, 'peso'), tgt = p.targetKg || null;
@@ -587,7 +658,7 @@
       '<div><small>Inicial</small><b>' + start + '</b></div><div><small>Actual</small><b>' + cur + '</b></div><div><small>Meta</small><b>' + (tgt || '—') + '</b></div></div>' +
       (tgt ? '<div class="pbar"><i style="width:' + pct + '%"></i></div><p class="meta">' + pct + '% del camino · ' + (cur > tgt ? 'faltan ' + (Math.round((cur - tgt) * 10) / 10) + ' kg' : 'meta alcanzada') + '</p>' : '<p class="meta">Define tu peso objetivo en Ajustes.</p>') +
       '<p class="meta">Objetivo: ' + esc(TW.GOALS[p.goal] || '') + ' · ' + (p.days || 4) + ' días/semana · ' + (p.minutes || 20) + ' min por sesión</p></article>' +
-      '<article class="card"><h3>Tiempo entrenado</h3><div class="wkgrid">' + cols + '</div>' +
+      '<article class="card"><h3>Tiempo de ejercicio</h3>' + timeTilesHTML(days, total) + '<div class="wkgrid">' + cols + '</div>' +
       '<p class="meta"><b>' + total + ' min</b> esta semana' + (planTot ? ' · plan ' + planTot + (xTot ? ' · <b class="xt2">+' + xTot + ' min extra</b>' : '') : '') + (last ? ' · semana pasada ' + last + ' min (' + (diff >= 0 ? '+' : '') + diff + ')' : '') + '</p></article>' +
       bodyCardHTML() + sleepCardHTML() + muscleChartHTML() + quoteHTML() +
       '<div class="row"><a class="ghost linkbtn" href="#ruta">Ver ruta</a><a class="ghost linkbtn" href="#semana">Editar semana</a></div></section>';
@@ -680,16 +751,21 @@
       return '<button class="dow' + (i === selDay ? ' sel' : '') + '" data-a="selDay" data-d="' + i + '" aria-label="' + d + (i === ti ? ' (hoy)' : '') + '">' +
         d + (i === ti ? '<i class="today-dot"></i>' : '') + '</button>';
     }).join('');
+    var ss = (S.sess || {})[today()], mins = info.exs.reduce(function (a, e) { return a + estMin(e); }, 0);
+    var started = canLog && ss, sessTxt = started ? 'Inicio ' + clock(ss.s) + (ss.fin ? ' · fin ' + clock(ss.e) : ' · en curso') : '';
     var body = info.exs.length
-      ? overviewHTML(info) + ringHTML(pct) + '<p class="meta">' + done + '/' + total + ' series completadas' + (canLog ? '' : ' · solo puedes registrar el día de hoy') + '</p>' +
-        rowsHTML(info.exs, canLog) + extrasHTML(info) +
-        (canLog ? timeCardHTML(canLog) : '') +
-        '<button class="wide" data-a="finishDay" data-d="' + selDay + '"' + (canLog ? '' : ' disabled') + '>Terminar día</button>'
+      ? '<article class="card sumcard"><div class="sumtop"><div><b>' + done + '/' + total + '</b> <span>series</span></div><div class="sumr">~' + mins + ' min · ' + info.exs.length + ' ejercicios</div></div>' +
+        '<div class="pbar"><i style="width:' + pct + '%"></i></div>' +
+        (sessTxt ? '<p class="meta">' + sessTxt + '</p>' : '') +
+        (canLog ? '<button class="wide" data-a="startRun">' + (done > 0 ? 'Continuar sesión' : 'Iniciar sesión') + '</button>' : '<p class="meta">Solo puedes registrar el día de hoy.</p>') + '</article>' +
+        rowsHTML(info.exs, canLog) +
+        '<details class="more"><summary>Calentamiento, extras y tiempo</summary>' + warmupBody() + extrasHTML(info) + (canLog ? timeCardHTML(canLog) : '') + '</details>' +
+        '<button class="wide ghost" data-a="finishDay" data-d="' + selDay + '"' + (canLog ? '' : ' disabled') + '>Terminar día</button>'
       : restDayHTML();
     view.innerHTML = '<section class="page"><nav class="dows">' + dows + '</nav>' +
       '<h2 class="title">' + esc(info.name) + '</h2>' +
       '<p class="sub">' + (info.groups.map(function (g) { return TW.MUSCLES[g]; }).join(' · ') || 'Sin entrenamiento programado') + '</p>' +
-      minCardHTML() + (info.exs.length ? warmupHTML() : '') + body + '</section>';
+      minCardHTML() + body + '</section>';
   }
   function minCardHTML() {
     var p = S.profile || {}, wk = TW.weekKey(today());
@@ -728,6 +804,9 @@
   }
   function warmItems(list) {
     return TW.lowImpact(S) ? list.filter(function (t) { return !/trote|salto/i.test(t); }) : list;
+  }
+  function warmupBody() {
+    return '<div class="warmbox"><p class="lbl">Calentamiento · 5–10 min</p>' + warmItems(TW.WARMUP.casa).map(function (t) { return '<label class="check"><input type="checkbox"> ' + esc(t) + '</label>'; }).join('') + '</div>';
   }
   function warmupHTML() {
     return '<details class="card"><summary><b>Calentamiento</b> <small>~5–10 min · antes de empezar</small></summary><div class="grid2">' +
@@ -768,25 +847,23 @@
     if (e.type === 'flex') return flexCard(e);
     return strengthCard(e, canLog);
   }
+  function isTimed(e) { return e.type === 'fuerza' && (e.prog === 'tiempo' || e.unit === 'seg' || (e.ladder && TW.LADDERS[e.ladder] && TW.LADDERS[e.ladder].unit === 'seg')); }
   function strengthCard(e, canLog) {
-    var date = today(), L = getLog(date, e.id), sug = TW.suggest(S, e, date);
-    var sets = [], filled = 0;
-    for (var i = 0; i < e.sets; i++) { var s = L && L.sets[i]; sets.push(s || null); if (s) filled++; }
-    var pct = Math.round(filled / e.sets * 100);
+    var date = today(), L = getLog(date, e.id), sug = TW.suggest(S, e, date), timed = isTimed(e);
+    var sets = [];
+    for (var i = 0; i < e.sets; i++) sets.push((L && L.sets[i]) || null);
     var tgt = e.ladder ? TW.target(S, e) : null;
-    var needLoad = e.prog === 'carga' && !TW.loadsFor(S, e).length
-      ? '<p class="warn">Configura las cargas de tu equipo en Ajustes.</p>' : '';
-    return '<article class="card" data-ex="' + e.id + '">' +
-      '<div class="card-h"><div><h3>' + exTitle(e) + '</h3><small class="step">' + muscleNames(e) + '</small>' +
-      (tgt ? '<small class="step">Paso ' + (tgt.step + 1) + '/' + tgt.total + ': ' + esc(tgt.name) + '</small>' : '') +
-      '</div>' + infoBtn(e) + '</div>' +
+    var needLoad = e.prog === 'carga' && !TW.loadsFor(S, e).length ? '<p class="warn">Configura las cargas de tu equipo en Ajustes.</p>' : '';
+    return '<article class="card xc" data-ex="' + e.id + '">' +
+      '<div class="card-h"><div><h3>' + exTitle(e) + '</h3>' + (tgt ? '<small class="step">Paso ' + (tgt.step + 1) + '/' + tgt.total + ': ' + esc(tgt.name) + '</small>' : '') + '</div>' + infoBtn(e) + '</div>' +
       '<p class="reps">' + repLabel(e, sug) + '</p>' + needLoad +
       '<div class="sets">' + sets.map(function (s, k) {
-        return '<button class="set' + (s ? ' done' : '') + '" data-a="logSet" data-ex="' + e.id + '" data-i="' + k + '"' +
-          (canLog ? '' : ' disabled') + ' aria-label="Serie ' + (k + 1) + (s ? ': ' + s.reps + ' repeticiones' : '') + '">' + (s ? s.reps : k + 1) + '</button>';
+        return '<button class="set' + (s ? ' done' : '') + (timed ? ' tm' : '') + '" data-a="logSet" data-ex="' + e.id + '" data-i="' + k + '"' +
+          (canLog ? '' : ' disabled') + ' aria-label="Serie ' + (k + 1) + (s ? ': ' + s.reps + (timed ? ' segundos' : ' repeticiones') : '') + '">' + (s ? s.reps + (timed ? '<small>s</small>' : '') : k + 1) + '</button>';
       }).join('') + '</div>' +
-      '<div class="row"><button class="ghost" data-a="rest" data-s="' + e.rest + '">Descanso ' + TW.fmt(e.rest) + '</button>' +
-      '<button class="ghost' + (L && L.clean ? ' on' : '') + '" data-a="clean" data-ex="' + e.id + '"' + (canLog ? '' : ' disabled') + '>Técnica limpia' + (L && L.clean ? ' ✓' : '') + '</button></div>' +
+      (timed ? '<p class="meta">Toca una serie para abrir el cronómetro. <button class="lnk" data-a="logManual" data-ex="' + e.id + '">Ingresar manual</button></p>' : '') +
+      '<div class="xlinks"><button class="lnk" data-a="rest" data-s="' + e.rest + '">⏱ Descanso ' + TW.fmt(e.rest) + '</button>' +
+      '<button class="lnk' + (L && L.clean ? ' on' : '') + '" data-a="clean" data-ex="' + e.id + '"' + (canLog ? '' : ' disabled') + '>' + (L && L.clean ? '✓ ' : '') + 'Técnica limpia</button></div>' +
       '</article>';
   }
   function cardioCard(e, canLog) {
@@ -829,20 +906,33 @@
     };
     renderSetSheet(e);
   }
+  function nearestIdx(loads, v) {
+    if (v == null) return -1;
+    var bi = 0; loads.forEach(function (x, k) { if (Math.abs(x - v) < Math.abs(loads[bi] - v)) bi = k; });
+    return bi;
+  }
   function renderSetSheet(e) {
     var c = sheetCtx, loads = TW.loadsFor(S, e);
-    openSheet('<h3>' + esc(e.name) + ' · Serie ' + (c.idx + 1) + '</h3>' +
-      (loads.length ? '<p class="lbl">Peso (kg)</p><div class="chips">' + loads.map(function (v) {
-        return '<button class="chip' + (v === c.load ? ' on' : '') + '" data-a="pickLoad" data-v="' + v + '">' + v + '</button>';
-      }).join('') + '</div>' : '') +
+    openSheet('<h3>' + esc(TW.exName(e)) + ' <small class="es">Serie ' + (c.idx + 1) + '</small></h3>' +
+      (loads.length ? '<p class="lbl">Peso</p><div class="loadrow"><button data-a="loadStep" data-d="-1" aria-label="Menos peso">−</button>' +
+        '<button class="loadval" data-a="openLoads"><b>' + (c.load != null ? c.load : '—') + '</b><span>kg · cambiar ▾</span></button>' +
+        '<button data-a="loadStep" data-d="1" aria-label="Más peso">+</button></div>' : '') +
       '<p class="lbl">' + (e.prog === 'tiempo' ? 'Segundos' : 'Repeticiones') + '</p>' +
       '<div class="stepper"><button data-a="rep" data-d="-1" aria-label="Menos">−</button><output aria-live="polite">' + c.reps + '</output><button data-a="rep" data-d="1" aria-label="Más">+</button></div>' +
-      '<button class="ghost" data-a="tapRep">+1 repetición</button>' +
-      '<p class="lbl">RPE (opcional)</p><div class="chips">' + [6, 7, 8, 9, 10].map(function (v) {
+      '<details class="more"><summary>Esfuerzo percibido (opcional)</summary><div class="chips">' + [6, 7, 8, 9, 10].map(function (v) {
         return '<button class="chip' + (v === c.rpe ? ' on' : '') + '" data-a="pickRpe" data-v="' + v + '">' + v + '</button>';
-      }).join('') + '</div>' +
+      }).join('') + '</div></details>' +
       '<button class="wide" data-a="saveSet">Guardar serie</button>');
   }
+  function openLoads() {
+    var e = TW.getEx(S, sheetCtx.exId), loads = TW.loadsFor(S, e);
+    $('#popBody').innerHTML = '<h3>Elige el peso <small class="es">kg</small></h3><div class="popgrid">' + loads.map(function (v) {
+      return '<button class="chip' + (v === sheetCtx.load ? ' on' : '') + '" data-a="pickLoad" data-v="' + v + '">' + v + '</button>';
+    }).join('') + '</div><button class="wide ghost" data-a="closePop">Cerrar</button>';
+    $('#pop').classList.remove('hidden');
+    var on = $('#popBody .chip.on'); if (on && on.scrollIntoView) on.scrollIntoView({ block: 'center' });
+  }
+  function closePop() { $('#pop').classList.add('hidden'); }
   function saveSet() {
     var c = sheetCtx, e = TW.getEx(S, c.exId), L = getLog(today(), e.id, true);
     var isNew = !L.sets[c.idx];
@@ -883,10 +973,10 @@
         if (r && r.advanced) msgs.push(e.name + ' → ' + r.to);
       }
     });
-    var ss = (S.sess || {})[date], nw = Date.now();
-    if (ss && nw - ss.e <= 10 * 60000) ss.e = nw;
+    var ss = (S.sess || {})[date], nw = Date.now(), tt = '';
+    if (ss) { ss.e = nw; ss.fin = true; tt = 'Inicio ' + clock(ss.s) + ' · fin ' + clock(ss.e) + ' · ' + fmtMin(Math.max(1, Math.round((ss.e - ss.s) / 60000))); }
     save(); renderToday();
-    toast(msgs.length ? 'Escalera avanzada: ' + msgs.join('; ') : 'Día terminado');
+    toast((msgs.length ? 'Escalera avanzada: ' + msgs.join('; ') + '. ' : '') + (tt || 'Día terminado'));
   }
 
   /* ---------- SEMANA ---------- */
@@ -1699,13 +1789,21 @@
   /* ---------- acciones ---------- */
   var ACT = {
     selDay: function (el, d) { selDay = Number(d.d); run = null; renderToday(); },
-    startRun: function () { S.sess = S.sess || {}; var k = today(); if (!S.sess[k]) S.sess[k] = { s: Date.now(), e: Date.now() }; run = { i: 0 }; save(); renderToday(); window.scrollTo(0, 0); },
+    startRun: function () { S.sess = S.sess || {}; var k = today(); if (!S.sess[k]) S.sess[k] = { s: Date.now(), e: Date.now() }; else if (S.sess[k].fin) { S.sess[k].fin = false; } run = { i: 0 }; save(); renderToday(); window.scrollTo(0, 0); },
     runAt: function (el, d) { run = { i: Number(d.i) + 1 }; renderToday(); window.scrollTo(0, 0); },
     runNext: function () { run.i++; renderToday(); window.scrollTo(0, 0); },
     runPrev: function () { run.i--; renderToday(); window.scrollTo(0, 0); },
     runExit: function () { run = null; renderToday(); },
-    logSet: function (el, d) { openSetSheet(d.ex, Number(d.i)); },
-    pickLoad: function (el, d) { sheetCtx.load = Number(d.v); renderSetSheet(TW.getEx(S, sheetCtx.exId)); },
+    logSet: function (el, d) {
+      var e = TW.getEx(S, d.ex);
+      if (isTimed(e)) { var sg = TW.suggest(S, e, today()); openTimer(sg.reps || e.range[0], TW.exName(e) + ' · Serie ' + (Number(d.i) + 1), { exId: d.ex, idx: Number(d.i) }); }
+      else openSetSheet(d.ex, Number(d.i));
+    },
+    logManual: function (el, d) { openSetSheet(d.ex, (function () { var L = getLog(today(), d.ex), k = 0; while (L && L.sets[k]) k++; return k; })()); },
+    pickLoad: function (el, d) { sheetCtx.load = Number(d.v); closePop(); renderSetSheet(TW.getEx(S, sheetCtx.exId)); },
+    openLoads: openLoads,
+    closePop: closePop,
+    loadStep: function (el, d) { var e = TW.getEx(S, sheetCtx.exId), L = TW.loadsFor(S, e); if (!L.length) return; var k = nearestIdx(L, sheetCtx.load); if (k < 0) k = 0; else k = TW.clamp(k + Number(d.d), 0, L.length - 1); sheetCtx.load = L[k]; renderSetSheet(e); },
     rep: function (el, d) { sheetCtx.reps = Math.max(0, sheetCtx.reps + Number(d.d)); renderSetSheet(TW.getEx(S, sheetCtx.exId)); },
     tapRep: function () { sheetCtx.reps += 1; beep(520, 80); renderSetSheet(TW.getEx(S, sheetCtx.exId)); },
     minUp: function () { S.profile.minutes = TW.clamp((S.profile.minutes || 20) + 5, 10, 60); S.profile.minCheck = TW.weekKey(today()); save(); toast('Sesiones: ' + S.profile.minutes + ' min'); renderToday(); },
@@ -1716,7 +1814,19 @@
     clean: function (el, d) { var L = getLog(today(), d.ex, true); L.clean = !L.clean; save(); renderToday(); },
     finishDay: function () { run = null; finishDay(); },
     saveCardio: function (el, d) { saveCardio(d.ex); },
-    flexTimer: function (el, d) { startTimer(Number(d.sec), 'Estiramiento'); },
+    flexTimer: function (el, d) { openTimer(Number(d.sec), 'Estiramiento', null); },
+    tmrPause: function () {
+      if (!tmr) return;
+      if (tmr.paused) { tmr.paused = false; tmr.end = Date.now() + tmr.left * 1000; $('#tmrPauseBtn').textContent = 'Pausa'; }
+      else { tmr.left = Math.max(0, (tmr.end - Date.now()) / 1000); tmr.paused = true; $('#tmrPauseBtn').textContent = 'Seguir'; $('#tmrPhase').textContent = 'En pausa'; }
+    },
+    tmrDone: function () {
+      if (!tmr) return;
+      if (tmr.phase === 'prep') { tmrClose(); return; }
+      var el = tmr.total - (tmr.paused ? tmr.left : Math.max(0, (tmr.end - Date.now()) / 1000));
+      tmrFinish(Math.max(1, el));
+    },
+    tmrCancel: function () { tmrClose(); },
     flexDone: function (el, d) { flexDone(d.ex); },
     skipTimer: skipTimer,
     suggest: applySuggestion,

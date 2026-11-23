@@ -1,5 +1,5 @@
 /* Service worker: la app funciona sin conexión. Cambia CACHE al publicar cambios de archivos. */
-const CACHE = 'titan-workout-v23';
+const CACHE = 'titan-workout-v24';
 const ASSETS = ['./', './index.html', './styles.css', './manifest.webmanifest', './icon.svg',
   './js/catalog.js', './js/nombres.js', './js/anim.js', './js/ejercicios2.js', './js/ejercicios3.js', './js/cuerpo3d.js', './js/figura.js', './js/db.js', './js/logic.js', './js/app.js'];
 
