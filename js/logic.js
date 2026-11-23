@@ -55,6 +55,14 @@
     }, 0) / ids.length;
     return avg < 1.5 ? 1 : avg < 2.75 ? 2 : 3;
   };
+  /* Carga inicial orientativa: posición dentro de las cargas disponibles según experiencia.
+     No usa 1RM (no lo conocemos); se ajusta con la doble progresión tras 1–2 sesiones. */
+  TW.EXP = { principiante: { label: 'Principiante', frac: 0.3 }, retomando: { label: 'He entrenado y retomo', frac: 0.5 }, experto: { label: 'Experto', frac: 0.7 } };
+  TW.startLoad = function (loads, exp) {
+    if (!loads || !loads.length) return null;
+    var f = (TW.EXP[exp] || TW.EXP.principiante).frac;
+    return TW.floorLoad(loads, loads[loads.length - 1] * f);
+  };
   TW.progOf = function (S, e) {
     S.exProg = S.exProg || {};
     if (!S.exProg[e.id]) {

@@ -12,10 +12,18 @@ TW.PATTERNS = {
 };
 TW.EQUIPMENT = {
   mancuernas: 'Mancuernas', barra: 'Barra', discos: 'Discos', barra_dominadas: 'Barra de dominadas',
-  bandas: 'Bandas elásticas', bicicleta: 'Bicicleta estática', kettlebell: 'Kettlebell', banco: 'Banco'
+  banda_rosa: 'Banda HAWK rosa 66×8 cm', banda_turquesa: 'Banda HAWK turquesa 72×8 cm',
+  cuerda_saltar: 'Cuerda de saltar', bicicleta: 'Bicicleta estática', kettlebell: 'Kettlebell', banco: 'Banco'
+};
+/* Resistencia de cada banda: no viene impresa en la caja; se completa al probarlas (ligera / media / fuerte). */
+TW.BANDS_NOTE = 'Resistencia por confirmar: la caja no la indica. Pruébala y anota si es ligera, media o fuerte.';
+/* Calentamiento según el lugar (se muestra en Hoy). */
+TW.WARMUP = {
+  casa: ['Caminar en el sitio o trote suave 3 min', 'Círculos de cadera y hombros, 10 c/u', 'Sentadilla sin peso, 2 × 10 lenta', 'Puente de glúteo sin peso, 2 × 12', 'Plancha corta, 20 s'],
+  abierto: ['Caminata rápida 5 min', 'Trote suave 3–5 min (o alterna 1 min trote / 1 min caminar)', 'Zancadas sin peso, 2 × 8 por pierna', 'Círculos de cadera y hombros, 10 c/u', 'Saltos suaves con cuerda o sin ella, 1 min']
 };
 /* Equipo con cargas en kg. Lo usan logic.js y app.js (Ajustes y asistente). */
-TW.LOADABLE = ['mancuernas', 'discos', 'bandas', 'barra', 'kettlebell'];
+TW.LOADABLE = ['mancuernas', 'discos', 'barra', 'kettlebell'];
 /* Discos del usuario (foto): piezas totales por peso. */
 TW.PLATE_POOL = [{ kg: 2.5, n: 16 }, { kg: 1.25, n: 8 }, { kg: 0.5, n: 8 }];
 /* Totales alcanzables con las piezas dadas. parts: [{ kg, max }] (max = piezas de ese peso disponibles). */
@@ -99,7 +107,9 @@ TW.CATALOG = [
   E({ id: 'dominadas', name: 'Dominadas', pattern: 'tiron', muscles: ['espalda', 'biceps'], equip: ['barra_dominadas'], diff: 2, goals: ['calistenia', 'definicion'], prog: 'ladder', ladder: 'dominadas', rest: 120, note: 'Agarre prono a la altura de los hombros. Sube hasta que la barbilla supere la barra.' }),
   E({ id: 'dominadas_supinas', name: 'Dominadas supinas', pattern: 'tiron', muscles: ['biceps', 'espalda'], equip: ['barra_dominadas'], diff: 2, goals: ['calistenia'], range: [3, 8], rest: 120, note: 'Agarre supino a la anchura de los hombros. Evita balancear el cuerpo.' }),
   E({ id: 'remo_invertido', name: 'Remo invertido', pattern: 'tiron', muscles: ['espalda', 'biceps'], equip: ['barra_dominadas'], diff: 1, goals: ['calistenia'], prog: 'ladder', ladder: 'remo_invertido', note: 'Cuerpo rígido, pecho hacia la barra, codos cerca del cuerpo.' }),
-  E({ id: 'remo_banda', name: 'Remo con banda', pattern: 'tiron', muscles: ['espalda', 'biceps'], equip: ['bandas'], diff: 1, goals: ['definicion'], range: [10, 15], note: 'Retrae las escápulas al final del movimiento; no uses el tronco como impulso.' }),
+  E({ id: 'remo_banda', name: 'Remo con banda rosa', pattern: 'tiron', muscles: ['espalda', 'biceps'], equip: ['banda_rosa'], diff: 1, goals: ['definicion'], range: [10, 15], note: 'Retrae las escápulas al final del movimiento; no uses el tronco como impulso.' }),
+  E({ id: 'remo_banda_turquesa', name: 'Remo con banda turquesa', pattern: 'tiron', muscles: ['espalda', 'biceps'], equip: ['banda_turquesa'], diff: 1, goals: ['definicion'], range: [10, 15], note: 'Retrae las escápulas al final del movimiento; no uses el tronco como impulso.' }),
+  E({ id: 'saltar_cuerda', name: 'Saltar cuerda', pattern: 'cardio', muscles: ['cardio', 'pantorrillas'], equip: ['cuerda_saltar'], diff: 1, goals: ['resistencia', 'definicion'], type: 'cardio', minutes: 10, note: 'Saltos bajos, codos cerca del cuerpo, aterriza suave sobre la punta de los pies.' }),
   E({ id: 'sentadilla_bulgara', name: 'Sentadilla búlgara', pattern: 'zancada', muscles: ['cuadriceps', 'gluteos'], equip: ['banco'], diff: 2, goals: ['calistenia', 'definicion'], prog: 'ladder', ladder: 'bulgara', note: 'Pie trasero apoyado en el banco. Rodilla delantera alineada con el pie.' }),
   E({ id: 'sentadilla', name: 'Sentadilla profunda', pattern: 'sentadilla', muscles: ['cuadriceps', 'gluteos'], diff: 1, goals: ['calistenia', 'definicion'], prog: 'ladder', ladder: 'sentadilla', note: 'Talones apoyados, rodillas en la línea de los pies, pecho erguido.' }),
   E({ id: 'zancadas', name: 'Zancadas', pattern: 'zancada', muscles: ['cuadriceps', 'gluteos'], diff: 1, goals: ['definicion'], range: [10, 14], note: 'Paso largo, rodilla trasera casi al suelo, tronco erguido.' }),

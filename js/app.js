@@ -129,7 +129,26 @@
     view.innerHTML = '<section class="page"><nav class="dows">' + dows + '</nav>' +
       '<h2 class="title">' + esc(info.name) + '</h2>' +
       '<p class="sub">' + (info.groups.map(function (g) { return TW.MUSCLES[g]; }).join(' · ') || 'Sin entrenamiento programado') + '</p>' +
-      body + '</section>';
+      (info.exs.length ? warmupHTML() : '') + body + '</section>';
+  }
+  function warmupHTML() {
+    return '<article class="card"><h3>Calentamiento (5–10 min)</h3><div class="grid2">' +
+      '<div><p class="lbl">En casa</p><ul class="plain">' + TW.WARMUP.casa.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul></div>' +
+      '<div><p class="lbl">Espacio abierto</p><ul class="plain">' + TW.WARMUP.abierto.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul></div>' +
+      '</div></article>';
+  }
+  function startLoadsHTML() {
+    var exp = (S.profile && S.profile.exp) || 'principiante';
+    var rows = ['mancuernas', 'barra', 'kettlebell'].map(function (k) {
+      var x = S.equipment[k] || { loads: [] };
+      var loads = (x.loads && x.loads.length) ? x.loads : (TW.PRESET_LOADS[k] || []);
+      var v = TW.startLoad(loads, exp);
+      if (v == null) return '';
+      var txt = k === 'barra' ? v + ' kg totales (sin peso de la barra)' : v + ' kg' + (k === 'mancuernas' ? ' por mancuerna' : '');
+      return '<li>' + TW.EQUIPMENT[k] + ': ' + txt + '</li>';
+    }).join('');
+    return '<div class="card"><p class="lbl">Carga inicial sugerida · ' + TW.EXP[exp].label + '</p><ul class="plain">' + rows + '</ul>' +
+      '<p class="meta">Punto de partida orientativo. Ajusta con la doble progresión tras 1–2 sesiones.</p></div>';
   }
   function doneCount(e) {
     var L = getLog(today(), e.id);
@@ -614,9 +633,10 @@
       '<label class="field">Días/semana<input type="number" min="3" max="6" name="days" value="' + p.days + '"></label>' +
       '<label class="field">Peso objetivo (kg)<input type="number" step="0.1" name="targetKg" value="' + (p.targetKg || '') + '"></label>' +
       '<label class="field">Objetivo prioritario<select name="goal">' + TW.ALL_GOALS.map(function (g) { return '<option value="' + g + '"' + (g === p.goal ? ' selected' : '') + '>' + TW.GOALS[g] + '</option>'; }).join('') + '</select></label>' +
+      '<label class="field">Experiencia<select name="exp">' + Object.keys(TW.EXP).map(function (k) { return '<option value="' + k + '"' + ((p.exp || 'principiante') === k ? ' selected' : '') + '>' + TW.EXP[k].label + '</option>'; }).join('') + '</select></label>' +
       '</div><button class="ghost" data-a="saveProfile">Guardar perfil</button></div>' +
       '<div class="card"><h3>Equipo</h3>' + equipScanHTML() + '<p class="meta">Marca lo que tienes y escribe las cargas disponibles. La app solo redondea a esos valores.</p>' +
-      eq + '<button class="ghost" data-a="saveEquip">Guardar equipo</button></div>' +
+      eq + startLoadsHTML() + '<p class="meta">' + TW.BANDS_NOTE + '</p><button class="ghost" data-a="saveEquip">Guardar equipo</button></div>' +
       '<div class="card"><h3>Nivel</h3><p class="meta">Nivel actual: ' + ['', 'Principiante', 'Intermedio', 'Avanzado'][TW.level(S)] + '</p><div class="grid2">' +
       Object.keys(TW.ASSESS).map(function (k) {
         return '<label class="field">' + TW.ASSESS[k] + '<input type="number" min="0" name="as_' + k + '" value="' + (a[k] || 0) + '"></label>';
@@ -637,7 +657,7 @@
     var v = collect(view);
     S.profile = Object.assign({}, S.profile, {
       weight: v.weight, height: v.height, age: v.age, days: TW.clamp(Number(v.days) || 3, 3, 6),
-      targetKg: v.targetKg || null, goal: v.goal
+      targetKg: v.targetKg || null, goal: v.goal, exp: TW.EXP[v.exp] ? v.exp : 'principiante'
     });
     save(); toast('Perfil guardado'); renderSettings();
   }
@@ -861,7 +881,9 @@
     barra: /\bbarra\b|barbell/,
     discos: /\bdiscos?\b|plate/,
     barra_dominadas: /dominad|pull.?up|chin.?up/,
-    bandas: /banda|\bband|el[aá]stic|resistance/,
+    banda_rosa: /banda.*rosa|rosa|pink/,
+    banda_turquesa: /banda.*turquesa|turquoise|turquesa|celeste/,
+    cuerda_saltar: /cuerda|rope|jump/,
     bicicleta: /bicicleta|\bbici\b|\bbike\b|cycle/,
     kettlebell: /kettlebell|pesa rusa|\bkb\b/,
     banco: /\bbanco\b|\bbench\b/
