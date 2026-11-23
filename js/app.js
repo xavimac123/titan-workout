@@ -5,7 +5,7 @@
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var view = $('#view');
   var S = null, W = null, selDay = null, progSel = null, restIv = null, toastTo = null, sheetCtx = null;
-  var libFilter = { pat: '', goal: '' };
+  var libFilter = { pat: '', goal: '', mus: '' };
   var curNum = 0, quoteIdx = null;
   var run = null;
   function bsvg(m, size, heat) { return TW.bodySVG(m, size, (S && S.profile && S.profile.sex) || 'm', heat); }
@@ -158,25 +158,61 @@
     quoteIdx = i;
     return '<article class="card quote"><p>“' + esc(Q[i][0]) + '”</p><small>— ' + esc(Q[i][1]) + '</small></article>';
   }
+  function loadTag(e) {
+    var L = TW.loadByLevel(S, e); if (!L) return '';
+    var v = L.vals[TW.clamp(TW.level(S), 1, 3) - 1];
+    return '<span class="pill ld">≈ ' + v.got + ' kg</span>';
+  }
+  function loadBlock(e) {
+    var mode = TW.exMode(e), lvl = TW.level(S), L = TW.loadByLevel(S, e), out = '';
+    if (mode.k === 'pc') {
+      return '<p class="lbl">Carga</p><p><b>Peso corporal</b>: sin carga externa. Progresas con más repeticiones o con una variante más difícil.</p>';
+    }
+    if (mode.k === 'bd') {
+      return '<p class="lbl">Resistencia</p><p>La <b>banda rosa</b> es más firme y la <b>turquesa</b> más ligera. Elige la que te deje completar todo el rango con técnica limpia y las últimas repeticiones exigentes; si no llegas, usa la más ligera o acorta el rango.</p>';
+    }
+    if (mode.k === 'mov') return '';
+    if (L) {
+      var names = ['Principiante', 'Intermedio', 'Avanzado'];
+      out = '<p class="lbl">Carga sugerida · ' + L.unit + '</p><div class="lvgrid">' + L.vals.map(function (v, i) {
+        var diff = v.got !== v.want ? '<small>(ideal ' + v.want + ')</small>' : '';
+        return '<div class="lv' + (i + 1 === lvl ? ' on' : '') + '"><small>' + names[i] + '</small><b>' + v.got + '</b>' + diff + '</div>';
+      }).join('') + '</div><p class="meta">Punto de partida, redondeado hacia abajo a las cargas que tienes' + (L.have ? '' : ' (activa tu equipo para ajustarlo)') +
+        '. Sube cuando completes el tope de repeticiones en todas las series; si pierdes la técnica, baja una carga.</p>';
+    } else if (mode.k === 'eq') {
+      out = '<p class="lbl">Carga</p><p>Elige un peso con el que las últimas 2 repeticiones sean exigentes pero limpias.</p>';
+    }
+    return out;
+  }
   function openInfo(id) {
     var e = TW.getEx(S, id), mus = (e.muscles || []).filter(function (m) { return m !== 'cuerpo_completo'; });
     var prim = mus[0] ? TW.MUSCLES[mus[0]] : null, sec = mus.slice(1).map(function (m) { return TW.MUSCLES[m]; });
-    var eq = (e.equip || []).map(function (k) { return '<span class="pill">' + TW.equipIcon(k, 20) + ' ' + esc(String(TW.EQUIPMENT[k]).split(' (')[0]) + '</span>'; }).join(' ') || '<span class="pill">Sin equipo</span>';
-    var inBlock = BLOCKS.filter(function (b) { return b.id === blockOf(e); })[0];
-    var ph = (S.exPhotos || {})[e.id];
-    openSheet((ph ? '<img class="preview" src="' + ph + '" alt="Mi foto del ejercicio">' : '') + '<div class="big">' + bsvg(e.muscles, 'big') + '</div>' +
+    var eq = (e.equip || []).map(function (k) { return '<span class="pill">' + TW.equipIcon(k, 20) + ' ' + esc(String(TW.EQUIPMENT[k]).split(' (')[0]) + '</span>'; }).join(' ');
+    var mode = TW.exMode(e), inBlock = BLOCKS.filter(function (b) { return b.id === blockOf(e); })[0];
+    var ph = (S.exPhotos || {})[e.id], svg = TW.animSVG(e), mo = TW.MOTION_OF && TW.MOTION_OF[e.id];
+    var cues = mo && TW.CUES[mo[0]], steps = '';
+    if (cues) {
+      steps = '<ol class="steps">' + ['Inicio', 'Movimiento', 'Final'].map(function (t, i) { return '<li><b>' + t + '</b><span>' + esc(cues[i]) + '</span></li>'; }).join('') + '</ol>';
+    }
+    var src = TW.sourcesFor(e).map(function (x) { return '<li><a href="' + x[1] + '" target="_blank" rel="noopener">' + esc(x[0]) + '</a></li>'; }).join('');
+    openSheet(
+      (svg ? '<div class="animbox">' + svg + '<div class="animbar"><span>Inicio ⇄ Final · animación en bucle</span><button class="ghost sm" data-a="animToggle">⏸ Pausar</button></div></div>'
+        : '<div class="big">' + bsvg(e.muscles, 'big') + '</div>') +
+      (ph ? '<img class="preview" src="' + ph + '" alt="Mi foto del ejercicio">' : '') +
       '<h3>' + exTitle(e) + '</h3>' +
+      '<div class="chips2"><span class="pill md ' + mode.k + '">' + mode.t + '</span><span class="pill">Nivel ' + (e.diff || 1) + '/3</span>' + (eq || '') + '</div>' +
       '<p class="lbl">Qué trabaja</p><p>' + (prim ? '<b>' + prim + '</b>' : 'Todo el cuerpo') + (sec.length ? ' <span class="meta">· también: ' + sec.join(', ') + '</span>' : '') + '</p>' +
-      '<p class="lbl">Cómo hacerlo</p><p>' + esc(TW.exHow(e)) + '</p>' +
-      (e.note ? '<p class="meta"><em>' + esc(e.note) + '</em></p>' : '') +
-      '<p class="lbl">Equipo</p><p>' + eq + '</p>' +
+      (svg ? '<div class="big small">' + bsvg(e.muscles, 'big') + '</div>' : '') +
+      loadBlock(e) +
+      '<p class="lbl">Cómo hacerlo</p>' + (steps || '<p>' + esc(TW.exHow(e)) + '</p>') +
+      (steps ? '<p class="meta"><em>' + esc(TW.exHow(e)) + '</em></p>' : '') +
       '<p class="lbl">Calentamiento antes de este ejercicio</p><p>' + esc(TW.PATTERN_WARM[e.pattern] || 'Calienta 3–5 min antes.') + '</p>' +
-      '<p class="lbl">Dónde va en la sesión</p><p>' + (inBlock ? esc(inBlock.name) + ' · ' + esc(inBlock.hint) : '') + '. Dificultad ' + (e.diff || 1) + '/3.</p>' +
+      '<p class="lbl">Dónde va en la sesión</p><p>' + (inBlock ? esc(inBlock.name) + ' · ' + esc(inBlock.hint) : '') + '.</p>' +
+      '<details class="srcbox"><summary>Fuentes técnicas</summary><ul class="plain">' + src + '</ul><p class="meta">Las animaciones son esquemas propios para entender el movimiento; las cargas son puntos de partida, no una prescripción médica.</p></details>' +
       '<label class="field">' + (ph ? 'Cambiar mi foto o imagen' : 'Agregar mi foto o imagen del ejercicio') + '<input type="file" id="exPhoto" data-ex="' + e.id + '" accept="image/*"></label>' +
       (ph ? '<button class="ghost" data-a="delExPhoto" data-ex="' + e.id + '">Quitar mi foto</button>' : '') +
       '<button class="wide ghost" data-a="closeSheet">Cerrar</button>');
   }
-
   /* ---- Selector "Añadir ejercicio": glassbox con sugerencias por zona urgente ---- */
   var pick = { g: null, p: 'all' }, pickDay = null;
   function pd() { return pickDay != null ? pickDay : selDay; }
@@ -228,7 +264,7 @@
       var e = r.e, eq = (e.equip || []).map(function (k) { return TW.equipIcon(k, 18); }).join('') || '<span class="meta">Sin equipo</span>';
       return '<div class="prow' + (r.why ? ' lock' : '') + '"><div class="pmain"><b>' + esc(TW.exName(e)) + '</b>' +
         '<small class="es">' + esc(TW.PATTERNS[e.pattern]) + (r.main ? '' : ' · apoyo') + ' · Nivel ' + (e.diff || 1) + '/3 · ~' + TW.estMin(e) + ' min</small>' +
-        '<span class="peq">' + eq + (r.why ? '<em>Requiere: ' + esc(r.why) + '</em>' : '') + '</span></div>' +
+        '<span class="peq"><span class="pill md ' + TW.exMode(e).k + '">' + TW.exMode(e).t + '</span>' + eq + loadTag(e) + (r.why ? '<em>Requiere: ' + esc(r.why) + '</em>' : '') + '</span></div>' +
         '<div class="pact"><button class="ghost sm" data-a="info" data-ex="' + e.id + '" aria-label="Información">i</button>' +
         (r.why ? '' : '<button class="sm" data-a="addPick" data-ex="' + e.id + '">Añadir</button>') + '</div></div>';
     };
@@ -1011,6 +1047,7 @@
       if (st === 'descartado') return false;
       if (libFilter.pat && e.pattern !== libFilter.pat) return false;
       if (libFilter.goal && e.goals.indexOf(libFilter.goal) < 0) return false;
+      if (libFilter.mus && e.muscles.indexOf(libFilter.mus) < 0) return false;
       return TW.hasEquip(S, e) || st === 'pausa';
     });
     var discarded = all.filter(function (e) { return TW.status(S, e.id) === 'descartado'; });
@@ -1022,6 +1059,7 @@
     }).join('');
     view.innerHTML = '<section class="page"><div class="card-h"><h2 class="title">Biblioteca</h2>' +
       '<button class="ghost" data-a="customNew">+ Propio</button></div>' +
+      '<div class="grid2"><select data-f="mus" aria-label="Grupo muscular"><option value="">Todos los grupos musculares</option>' + Object.keys(TW.MUSCLES).map(function (m) { return '<option value="' + m + '"' + (libFilter.mus === m ? ' selected' : '') + '>' + TW.MUSCLES[m] + '</option>'; }).join('') + '</select></div>' +
       '<div class="grid2"><select data-f="pat" aria-label="Patrón"><option value="">Todos los patrones</option>' + pats + '</select>' +
       '<select data-f="goal" aria-label="Objetivo"><option value="">Todos los objetivos</option>' + goals + '</select></div>' +
       '<p class="meta">Solo ves ejercicios que puedes hacer con tu equipo.</p>' +
@@ -1039,7 +1077,7 @@
     return '<article class="card lib"><div class="card-h"><div><h3>' + exTitle(e) + (e.custom ? ' <small>(propio)</small>' : '') + '</h3><p class="how">' + esc(TW.exHow(e)) + '</p>' +
       '<small class="step">' + TW.PATTERNS[e.pattern] + ' · ' + (e.muscles.map(function (m) { return TW.MUSCLES[m]; }).join(', ')) + '</small></div>' +
       '<span class="pill ' + st + '">' + label + '</span></div>' +
-      '<p class="meta">Dificultad ' + e.diff + '/3 · ' + (e.equip.length ? 'Equipo: ' + e.equip.map(function (q) { return TW.EQUIPMENT[q]; }).join(', ') : 'Peso corporal') + '</p>' +
+      '<p class="meta"><span class="pill md ' + TW.exMode(e).k + '">' + TW.exMode(e).t + '</span> Dificultad ' + e.diff + '/3' + (e.equip.length ? ' · ' + e.equip.map(function (q) { return String(TW.EQUIPMENT[q]).split(' (')[0]; }).join(', ') : '') + '</p>' +
       '<div class="row wrap">' + btns + '<button class="ghost" data-a="detail" data-ex="' + e.id + '">Ver</button></div></article>';
   }
   function setStatus(id, st) {
@@ -1541,7 +1579,8 @@
     stopBang: stopBang,
     saveTest: saveTest,
     setStatus: function (el, d) { setStatus(d.ex, d.st); },
-    detail: function (el, d) { openDetail(d.ex); },
+    detail: function (el, d) { openInfo(d.ex); },
+    animToggle: function (el) { var sv = document.querySelector('#sheetBody svg.anim'); if (!sv) return; if (sv.animationsPaused()) { sv.unpauseAnimations(); el.textContent = '⏸ Pausar'; } else { sv.pauseAnimations(); el.textContent = '▶ Reproducir'; } },
     customNew: openCustomForm,
     saveCustom: saveCustom,
     saveProfile: saveProfile,
@@ -1577,6 +1616,7 @@
     else if (t.id === 'equipPhoto') scanEquipPhoto(t.files[0]);
     else if (t.id === 'importFile') importFile(t.files[0]);
     else if (t.dataset.f === 'progSel') { progSel = t.value; renderProgress(); }
+    else if (t.dataset.f === 'mus') { libFilter.mus = t.value; renderLibrary(); }
     else if (t.dataset.f === 'pat') { libFilter.pat = t.value; renderLibrary(); }
     else if (t.dataset.f === 'goal') { libFilter.goal = t.value; renderLibrary(); }
   });

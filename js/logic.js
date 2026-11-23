@@ -110,7 +110,7 @@
     if (e.prog === 'tiempo') return { reps: e.range[0], load: null };
     var loads = TW.loadsFor(S, e), lo = e.range[0], hi = e.range[1];
     var last = TW.lastSession(S, e.id, today);
-    if (!last) return { reps: lo, load: loads.length ? loads[0] : null, upgrade: false };
+    if (!last) return { reps: lo, load: loads.length ? (e.lv ? (TW.floorLoad(loads, e.lv[TW.clamp(TW.level(S), 1, 3) - 1]) || loads[0]) : loads[0]) : null, upgrade: false };
     var sets = last.sets.filter(Boolean);
     var minReps = Math.min.apply(null, sets.map(function (s) { return s.reps || 0; }));
     var lastLoad = sets[0].load == null ? null : sets[0].load;
