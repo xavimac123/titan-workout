@@ -154,7 +154,16 @@
     view.innerHTML = '<section class="page"><nav class="dows">' + dows + '</nav>' +
       '<h2 class="title">' + esc(info.name) + '</h2>' +
       '<p class="sub">' + (info.groups.map(function (g) { return TW.MUSCLES[g]; }).join(' · ') || 'Sin entrenamiento programado') + '</p>' +
-      (info.exs.length ? warmupHTML() : '') + body + '</section>';
+      minCardHTML() + (info.exs.length ? warmupHTML() : '') + body + '</section>';
+  }
+  function minCardHTML() {
+    var p = S.profile || {}, wk = TW.weekKey(today());
+    if (p.minCheck === wk) return '';
+    var mins = p.minutes || 20;
+    return '<article class="card"><h3>Revisión semanal</h3>' +
+      '<p class="meta">Tus sesiones están en ' + mins + ' min. ¿Subimos 5 min esta semana? Si dices no, se mantiene la rutina.</p>' +
+      '<div class="grid2"><button class="wide" data-a="minUp"' + (mins >= 60 ? ' disabled' : '') + '>Sí, +5 min</button>' +
+      '<button class="ghost" data-a="minKeep">No, mantener</button></div></article>';
   }
   function warmupHTML() {
     return '<article class="card"><h3>Calentamiento (5–10 min)</h3><div class="grid2">' +
@@ -268,6 +277,7 @@
       }).join('') + '</div>' : '') +
       '<p class="lbl">' + (e.prog === 'tiempo' ? 'Segundos' : 'Repeticiones') + '</p>' +
       '<div class="stepper"><button data-a="rep" data-d="-1" aria-label="Menos">−</button><output aria-live="polite">' + c.reps + '</output><button data-a="rep" data-d="1" aria-label="Más">+</button></div>' +
+      '<button class="ghost" data-a="tapRep">+1 repetición</button>' +
       '<p class="lbl">RPE (opcional)</p><div class="chips">' + [6, 7, 8, 9, 10].map(function (v) {
         return '<button class="chip' + (v === c.rpe ? ' on' : '') + '" data-a="pickRpe" data-v="' + v + '">' + v + '</button>';
       }).join('') + '</div>' +
@@ -699,6 +709,7 @@
       '<label class="field">Objetivo prioritario<select name="goal">' + TW.ALL_GOALS.map(function (g) { return '<option value="' + g + '"' + (g === p.goal ? ' selected' : '') + '>' + TW.GOALS[g] + '</option>'; }).join('') + '</select></label>' +
       '<label class="field">Experiencia<select name="exp">' + Object.keys(TW.EXP).map(function (k) { return '<option value="' + k + '"' + ((p.exp || 'principiante') === k ? ' selected' : '') + '>' + TW.EXP[k].label + '</option>'; }).join('') + '</select></label>' +
       '<label class="field">Minutos por sesión<input type="number" min="10" max="90" step="5" name="minutes" value="' + (p.minutes || 20) + '"></label>' +
+      '<label class="field">Medida de brazo (cm)<input type="number" step="0.5" name="arm" value="' + (p.arm || 37) + '"></label>' +
       '</div><p class="meta">Empieza con 20 min y sube de forma gradual; la app te preguntará cada semana si subes.</p><button class="ghost" data-a="saveProfile">Guardar perfil</button></div>' +
       '<div class="card"><h3>Equipo</h3>' + equipScanHTML() + '<p class="meta">Marca lo que tienes y escribe las cargas disponibles. La app solo redondea a esos valores.</p>' +
       eq + startLoadsHTML() + '<p class="meta">' + TW.BANDS_NOTE + '</p><ul class="plain">' + Object.keys(TW.BAND_ZONES).map(function (k) { return '<li>' + esc(TW.EQUIPMENT[k]) + ': ' + esc(TW.BAND_ZONES[k]) + '</li>'; }).join('') + '</ul><button class="ghost" data-a="saveEquip">Guardar equipo</button></div>' +
@@ -711,6 +722,9 @@
       '<label class="field">Proteína mín. (g/kg)<input type="number" step="0.1" name="pmin" value="' + S.settings.protein[0] + '"></label>' +
       '<label class="field">Proteína máx. (g/kg)<input type="number" step="0.1" name="pmax" value="' + S.settings.protein[1] + '"></label></div>' +
       '<button class="ghost" data-a="saveRanges">Guardar rangos</button></div>' +
+      '<div class="card"><h3>Glosario</h3><dl class="gloss">' + TW.GLOSSARY.map(function (g) {
+        return '<dt>' + esc(g[0]) + '</dt><dd>' + esc(g[1]) + '</dd>';
+      }).join('') + '</dl></div>' +
       '<div class="card"><h3>Datos</h3><p class="meta">Todo se guarda en este dispositivo. Haz respaldos periódicos para pasar los datos a otro teléfono.</p>' +
       '<div class="row wrap"><button class="ghost" data-a="exportCsv">Exportar CSV</button><button class="ghost" data-a="exportJson">Respaldo JSON</button>' +
       '<button class="ghost" data-a="importPick">Importar JSON</button><button class="ghost danger" data-a="resetAll">Borrar todo</button></div>' +
@@ -723,7 +737,8 @@
     S.profile = Object.assign({}, S.profile, {
       weight: v.weight, height: v.height, age: v.age, days: TW.clamp(Number(v.days) || 3, 3, 6),
       targetKg: v.targetKg || null, goal: v.goal, exp: TW.EXP[v.exp] ? v.exp : 'principiante',
-      minutes: TW.clamp(Number(v.minutes) || 20, 10, 90)
+      minutes: TW.clamp(Number(v.minutes) || 20, 10, 90),
+      arm: Number(v.arm) || null
     });
     save(); toast('Perfil guardado'); renderSettings();
   }
@@ -1049,6 +1064,9 @@
     logSet: function (el, d) { openSetSheet(d.ex, Number(d.i)); },
     pickLoad: function (el, d) { sheetCtx.load = Number(d.v); renderSetSheet(TW.getEx(S, sheetCtx.exId)); },
     rep: function (el, d) { sheetCtx.reps = Math.max(0, sheetCtx.reps + Number(d.d)); renderSetSheet(TW.getEx(S, sheetCtx.exId)); },
+    tapRep: function () { sheetCtx.reps += 1; beep(520, 80); renderSetSheet(TW.getEx(S, sheetCtx.exId)); },
+    minUp: function () { S.profile.minutes = TW.clamp((S.profile.minutes || 20) + 5, 10, 60); S.profile.minCheck = TW.weekKey(today()); save(); toast('Sesiones: ' + S.profile.minutes + ' min'); renderToday(); },
+    minKeep: function () { S.profile.minCheck = TW.weekKey(today()); save(); renderToday(); },
     pickRpe: function (el, d) { var v = Number(d.v); sheetCtx.rpe = sheetCtx.rpe === v ? null : v; renderSetSheet(TW.getEx(S, sheetCtx.exId)); },
     saveSet: function () { saveSet(); },
     rest: function (el, d) { startTimer(Number(d.s), 'Descanso'); },

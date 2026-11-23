@@ -48,7 +48,46 @@ TW.EX_EN = {
   flex_cadera: ['Hip flexor stretch', 'Estocada con la rodilla trasera en el suelo; empuja la cadera hacia adelante.'],
   flex_pecho_hombro: ['Chest and shoulder stretch', 'Brazo apoyado en el marco de una pared; gira el pecho lejos de la pared.'],
   flex_columna: ['Spine mobility', 'Movimientos suaves de columna sin forzar la zona lumbar.'],
-  flex_pantorrilla: ['Calf stretch', 'Pie atrás con el talón en el suelo; empuja la cadera hacia adelante.']
+  flex_pantorrilla: ['Calf stretch', 'Pie atrás con el talón en el suelo; empuja la cadera hacia adelante.'],
+  gym_prensa: ['Leg press', 'Espalda pegada al respaldo; baja hasta 90° sin levantar la pelvis.'],
+  gym_jalon: ['Lat pulldown', 'Lleva la barra al esternón con el pecho alto; no balancees el tronco.'],
+  gym_remo_polea: ['Seated cable row', 'Junta las escápulas al final del recorrido; columna neutra.'],
+  gym_press_pecho: ['Chest press machine', 'Ajusta el asiento para que los agarres queden a la altura del pecho.'],
+  gym_aperturas: ['Pec deck fly', 'Codos ligeramente flexionados y fijos; cierra con control.'],
+  gym_curl_femoral: ['Lying leg curl', 'Caderas apoyadas en el banco; flexiona sin levantar la pelvis.'],
+  gym_extension_cuad: ['Leg extension', 'Extiende sin bloquear bruscamente la rodilla; baja en 2-3 segundos.'],
+  gym_abductor: ['Hip abduction machine', 'Espalda recta y movimiento lento; no rebotes en el tope.'],
+  gym_press_hombro: ['Shoulder press machine', 'Empuja en línea con los hombros; evita arquear la lumbar.'],
+  gym_crunch_polea: ['Cable crunch', 'Flexiona el tronco llevando el pecho hacia las caderas; la cadera no se mueve.'],
+  gym_triceps_polea: ['Cable triceps pushdown', 'Codos pegados al cuerpo; extiende sin mover los hombros.'],
+  gym_curl_polea: ['Cable biceps curl', 'Codos fijos junto al torso; sube y baja con control.'],
+  gym_puente_maquina: ['Machine glute bridge', 'Empuja con los talones y aprieta el glúteo arriba; no arquees la lumbar.']
 };
 TW.exName = function (e) { var t = TW.EX_EN[e.id]; return t ? t[0] : e.name; };
 TW.exHow = function (e) { var t = TW.EX_EN[e.id]; return t ? t[1] : (e.note || ''); };
+
+/* Glosario: [término, explicación breve] */
+TW.GLOSSARY = [
+  ['Apnea del sueño', 'Pausas repetidas de la respiración durante el sueño (habitualmente de 10 segundos o más) que fragmentan el descanso. La forma obstructiva ocurre cuando la vía aérea se colapsa. Requiere evaluación médica.'],
+  ['Ronquido', 'Ruido causado por la vibración de tejidos de la garganta al pasar el aire. Un ronquido fuerte y frecuente puede acompañar a la apnea del sueño.'],
+  ['STOP-BANG', 'Cuestionario de 8 preguntas que estima el riesgo de apnea obstructiva. Tres o más respuestas afirmativas indican riesgo alto.'],
+  ['Escala de Epworth', 'Cuestionario que mide la somnolencia diurna. Una puntuación de 10 o más indica somnolencia excesiva.'],
+  ['Ritmo circadiano', 'Reloj biológico de unas 24 horas que regula el sueño, la temperatura corporal y las hormonas. Se ajusta con la luz y con horarios regulares.'],
+  ['Higiene del sueño', 'Hábitos que favorecen el descanso: horario fijo, poca luz intensa de noche, cafeína limitada por la tarde y un cuarto oscuro y fresco.'],
+  ['IMC', 'Índice de masa corporal: peso en kilos dividido entre la estatura en metros elevada al cuadrado. Es orientativo y no distingue entre músculo y grasa.'],
+  ['Relación cintura-estatura', 'Medida de la cintura dividida entre la estatura. Un valor superior a 0,5 se asocia con mayor riesgo cardiometabólico.'],
+  ['Sobrecarga progresiva', 'Aumento gradual de carga, repeticiones, series o densidad para que el músculo siga adaptándose.'],
+  ['Doble progresión', 'Primero subes repeticiones dentro de un rango. Al llegar al máximo del rango, subes la carga y vuelves al mínimo.'],
+  ['RPE', 'Esfuerzo percibido en una escala de 1 a 10. Un RPE de 8 significa que te quedaban unas 2 repeticiones.'],
+  ['RIR', 'Repeticiones en reserva: cuántas repeticiones más podrías hacer antes de llegar al fallo.'],
+  ['1RM', 'Carga máxima para una sola repetición. La app no la calcula; las cargas iniciales son orientativas.'],
+  ['Hipertrofia', 'Aumento del tamaño muscular, impulsado por la tensión mecánica, el trabajo cercano al fallo y una nutrición adecuada.'],
+  ['Fase concéntrica, excéntrica e isométrica', 'Concéntrica: el músculo se acorta al esforzarse. Excéntrica: se alarga bajo carga. Isométrica: se contrae sin cambiar de longitud.'],
+  ['Bisagra de cadera', 'Movimiento de flexión y extensión de cadera con la columna neutra, como el peso muerto o el puente de glúteo.'],
+  ['Déficit calórico', 'Consumir menos energía de la que gastas. Es la base para bajar grasa corporal.'],
+  ['Proteína (g/kg)', 'Gramos de proteína por kilo de peso corporal. Ayuda a conservar el músculo durante un déficit calórico.'],
+  ['Frecuencia cardíaca máxima', 'Estimación orientativa de 220 menos la edad. Sirve de referencia para ajustar la intensidad.'],
+  ['Volumen semanal', 'Número de series efectivas por grupo muscular en una semana.'],
+  ['Descarga', 'Semana con menos carga o volumen para recuperarte y seguir progresando.'],
+  ['Calistenia', 'Entrenamiento con el peso del propio cuerpo, como flexiones, dominadas y sentadillas.']
+];
