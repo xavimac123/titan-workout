@@ -20,7 +20,7 @@
     return (e.equip || []).every(function (q) { return S.equipment && S.equipment[q] && S.equipment[q].on; });
   };
 
-  var LOADABLE = ['mancuernas', 'discos', 'bandas', 'barra'];
+  var LOADABLE = TW.LOADABLE;
   TW.loadsFor = function (S, e) {
     var set = new Set();
     (e.equip || []).forEach(function (q) {

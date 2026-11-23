@@ -601,9 +601,10 @@
   function renderSettings() {
     var p = S.profile, a = S.assess || {};
     var eq = Object.keys(TW.EQUIPMENT).map(function (k) {
-      var x = S.equipment[k] || { on: false, loads: [] }, loadable = ['mancuernas', 'discos', 'bandas', 'barra'].indexOf(k) >= 0;
+      var x = S.equipment[k] || { on: false, loads: [] }, loadable = TW.LOADABLE.indexOf(k) >= 0;
+      var lv = (x.loads && x.loads.length) ? x.loads : (TW.PRESET_LOADS[k] || []);
       return '<div class="eqrow"><label class="check"><input type="checkbox" data-group="equip" value="' + k + '"' + (x.on ? ' checked' : '') + '> ' + TW.EQUIPMENT[k] + '</label>' +
-        (loadable ? '<input name="load_' + k + '" placeholder="Ej: 2, 4, 6, 8" value="' + (x.loads || []).join(', ') + '" aria-label="Cargas de ' + TW.EQUIPMENT[k] + ' en kg">' : '') + '</div>';
+        (loadable ? '<input name="load_' + k + '" placeholder="Ej: 2, 4, 6, 8" value="' + lv.join(', ') + '" aria-label="Cargas de ' + TW.EQUIPMENT[k] + ' en kg">' : '') + '</div>';
     }).join('');
     view.innerHTML = '<section class="page"><h2 class="title">Ajustes</h2>' +
       '<div class="card"><h3>Perfil</h3><div class="grid2">' +
@@ -743,9 +744,10 @@
     } else if (s === 2) {
       body = equipScanHTML() + '<p class="meta">Marca lo que tienes. Para los que llevan peso, escribe las cargas disponibles (kg).</p>' +
         Object.keys(TW.EQUIPMENT).map(function (k) {
-          var x = S.equipment[k] || { on: false, loads: [] }, loadable = ['mancuernas', 'discos', 'bandas', 'barra'].indexOf(k) >= 0;
+          var x = S.equipment[k] || { on: false, loads: [] }, loadable = TW.LOADABLE.indexOf(k) >= 0;
+          var lv = (x.loads && x.loads.length) ? x.loads : (TW.PRESET_LOADS[k] || []);
           return '<div class="eqrow"><label class="check"><input type="checkbox" data-group="equip" value="' + k + '"' + (x.on ? ' checked' : '') + '> ' + TW.EQUIPMENT[k] + '</label>' +
-            (loadable ? '<input name="load_' + k + '" placeholder="Ej: 2, 4, 6, 8" value="' + (x.loads || []).join(', ') + '">' : '') + '</div>';
+            (loadable ? '<input name="load_' + k + '" placeholder="Ej: 2, 4, 6, 8" value="' + lv.join(', ') + '">' : '') + '</div>';
         }).join('');
     } else if (s === 3) {
       body = '<p class="meta">Anota tus repeticiones limpias actuales. Con esto la app elige el escalón de inicio. Si no puedes hacer ninguna, pon 0.</p>' +
@@ -861,6 +863,7 @@
     barra_dominadas: /dominad|pull.?up|chin.?up/,
     bandas: /banda|\bband|el[aá]stic|resistance/,
     bicicleta: /bicicleta|\bbici\b|\bbike\b|cycle/,
+    kettlebell: /kettlebell|pesa rusa|\bkb\b/,
     banco: /\bbanco\b|\bbench\b/
   };
   function equipScanHTML() {

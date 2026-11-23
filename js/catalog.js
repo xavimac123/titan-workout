@@ -12,8 +12,33 @@ TW.PATTERNS = {
 };
 TW.EQUIPMENT = {
   mancuernas: 'Mancuernas', barra: 'Barra', discos: 'Discos', barra_dominadas: 'Barra de dominadas',
-  bandas: 'Bandas elásticas', bicicleta: 'Bicicleta estática', banco: 'Banco'
+  bandas: 'Bandas elásticas', bicicleta: 'Bicicleta estática', kettlebell: 'Kettlebell', banco: 'Banco'
 };
+/* Equipo con cargas en kg. Lo usan logic.js y app.js (Ajustes y asistente). */
+TW.LOADABLE = ['mancuernas', 'discos', 'bandas', 'barra', 'kettlebell'];
+/* Discos del usuario (foto): piezas totales por peso. */
+TW.PLATE_POOL = [{ kg: 2.5, n: 16 }, { kg: 1.25, n: 8 }, { kg: 0.5, n: 8 }];
+/* Totales alcanzables con las piezas dadas. parts: [{ kg, max }] (max = piezas de ese peso disponibles). */
+TW.achievable = function (parts) {
+  var vals = [0];
+  parts.forEach(function (p) {
+    var next = [];
+    vals.forEach(function (v) { for (var k = 0; k <= p.max; k++) next.push(Math.round((v + p.kg * k) * 100) / 100); });
+    vals = Array.from(new Set(next));
+  });
+  return vals.sort(function (a, b) { return a - b; });
+};
+/* Cargas precargadas en Ajustes (editables). Mancuerna = las dos mancuernas comparten el pool (n/2 piezas por peso).
+   Barra = ambos lados con la misma carga; no incluye el peso de la barra (desconocido). */
+TW.PRESET_LOADS = (function () {
+  var perDb = TW.achievable(TW.PLATE_POOL.map(function (p) { return { kg: p.kg, max: p.n / 2 }; }));
+  return {
+    mancuernas: perDb,
+    barra: perDb.map(function (x) { return Math.round(x * 2 * 100) / 100; }),
+    discos: [],
+    kettlebell: [8]
+  };
+})();
 TW.GOALS = { definicion: 'Definición muscular', calistenia: 'Calistenia', resistencia: 'Resistencia cardiovascular', flexibilidad: 'Flexibilidad' };
 TW.ALL_GOALS = Object.keys(TW.GOALS);
 TW.TYPES = { fuerza: 'Fuerza', cardio: 'Cardio', flex: 'Flexibilidad' };
@@ -87,6 +112,9 @@ TW.CATALOG = [
   E({ id: 'elevacion_pantorrillas', name: 'Elevación de pantorrillas', pattern: 'aislamiento', muscles: ['pantorrillas'], diff: 1, goals: ['definicion'], range: [15, 25], rest: 45, note: 'Sube sobre la punta de los pies, pausa arriba y baja lento.' }),
 
   /* Con equipo */
+  E({ id: 'kb_swing', name: 'Swing con kettlebell', pattern: 'bisagra', muscles: ['gluteos', 'isquiotibiales', 'cuerpo_completo'], equip: ['kettlebell'], diff: 2, goals: ['resistencia', 'definicion'], range: [15, 20], rest: 60, prog: 'carga', note: 'Impulso desde la cadera, no con los brazos; espalda neutra y la pesa sube hasta la altura del pecho.' }),
+  E({ id: 'kb_goblet', name: 'Sentadilla goblet con kettlebell', pattern: 'sentadilla', muscles: ['cuadriceps', 'gluteos'], equip: ['kettlebell'], diff: 1, goals: ['definicion'], range: [8, 12], prog: 'carga', note: 'Kettlebell pegada al pecho; codos entre las rodillas al bajar.' }),
+  E({ id: 'kb_press', name: 'Press con kettlebell', pattern: 'empuje', muscles: ['hombros', 'triceps'], equip: ['kettlebell'], diff: 1, goals: ['definicion'], range: [8, 12], prog: 'carga', note: 'Kettlebell en la posición de rack; empuja sin arquear la lumbar.' }),
   E({ id: 'press_banca', name: 'Press de banca', pattern: 'empuje', muscles: ['pecho', 'triceps'], equip: ['barra', 'discos', 'banco'], diff: 2, goals: ['definicion'], range: [6, 10], rest: 120, prog: 'carga', note: 'Escápulas juntas y abajo; barra al esternón; empuja en diagonal hacia los hombros.' }),
   E({ id: 'press_mancuernas', name: 'Press con mancuernas en banco', pattern: 'empuje', muscles: ['pecho', 'triceps'], equip: ['mancuernas', 'banco'], diff: 1, goals: ['definicion'], range: [8, 12], prog: 'carga', note: 'Codos a unos 45°; baja hasta sentir estiramiento en el pecho.' }),
   E({ id: 'press_hombro', name: 'Press de hombro con mancuernas', pattern: 'empuje', muscles: ['hombros', 'triceps'], equip: ['mancuernas'], diff: 1, goals: ['definicion'], range: [8, 12], prog: 'carga', note: 'Abdomen apretado; no arquees la lumbar al empujar.' }),
