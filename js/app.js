@@ -78,6 +78,17 @@
   }
 
   /* ---------- temporizador (descanso y estiramientos) ---------- */
+  /* Sonido sin archivos: tonos generados con Web Audio (se activa con el toque que inicia el temporizador). */
+  var audioCtx = null;
+  function beep(freq, ms) {
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.frequency.value = freq; o.connect(g); g.connect(audioCtx.destination);
+      g.gain.value = 0.25; o.start();
+      o.stop(audioCtx.currentTime + ms / 1000);
+    } catch (err) { /* sin audio disponible: solo vibración */ }
+  }
   function startTimer(sec, label) {
     clearInterval(restIv);
     var t = sec, bar = $('#restBar');
@@ -87,8 +98,10 @@
     show();
     restIv = setInterval(function () {
       t--; show();
+      if (t > 0 && t <= 3) beep(660, 120);
       if (t <= 0) {
         clearInterval(restIv); bar.classList.add('hidden');
+        beep(880, 500);
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
         toast(label + ' terminado');
       }
@@ -636,7 +649,7 @@
       '<label class="field">Experiencia<select name="exp">' + Object.keys(TW.EXP).map(function (k) { return '<option value="' + k + '"' + ((p.exp || 'principiante') === k ? ' selected' : '') + '>' + TW.EXP[k].label + '</option>'; }).join('') + '</select></label>' +
       '</div><button class="ghost" data-a="saveProfile">Guardar perfil</button></div>' +
       '<div class="card"><h3>Equipo</h3>' + equipScanHTML() + '<p class="meta">Marca lo que tienes y escribe las cargas disponibles. La app solo redondea a esos valores.</p>' +
-      eq + startLoadsHTML() + '<p class="meta">' + TW.BANDS_NOTE + '</p><button class="ghost" data-a="saveEquip">Guardar equipo</button></div>' +
+      eq + startLoadsHTML() + '<p class="meta">' + TW.BANDS_NOTE + '</p><ul class="plain">' + Object.keys(TW.BAND_ZONES).map(function (k) { return '<li>' + esc(TW.EQUIPMENT[k]) + ': ' + esc(TW.BAND_ZONES[k]) + '</li>'; }).join('') + '</ul><button class="ghost" data-a="saveEquip">Guardar equipo</button></div>' +
       '<div class="card"><h3>Nivel</h3><p class="meta">Nivel actual: ' + ['', 'Principiante', 'Intermedio', 'Avanzado'][TW.level(S)] + '</p><div class="grid2">' +
       Object.keys(TW.ASSESS).map(function (k) {
         return '<label class="field">' + TW.ASSESS[k] + '<input type="number" min="0" name="as_' + k + '" value="' + (a[k] || 0) + '"></label>';

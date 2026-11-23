@@ -12,11 +12,16 @@ TW.PATTERNS = {
 };
 TW.EQUIPMENT = {
   mancuernas: 'Mancuernas', barra: 'Barra', discos: 'Discos', barra_dominadas: 'Barra de dominadas',
-  banda_rosa: 'Banda HAWK rosa 66×8 cm', banda_turquesa: 'Banda HAWK turquesa 72×8 cm',
+  banda_rosa: 'Banda HAWK rosa 66×8 cm (más firme)', banda_turquesa: 'Banda HAWK turquesa 72×8 cm (ligera)',
   cuerda_saltar: 'Cuerda de saltar', bicicleta: 'Bicicleta estática', kettlebell: 'Kettlebell', banco: 'Banco'
 };
 /* Resistencia de cada banda: no viene impresa en la caja; se completa al probarlas (ligera / media / fuerte). */
-TW.BANDS_NOTE = 'Resistencia por confirmar: la caja no la indica. Pruébala y anota si es ligera, media o fuerte.';
+TW.BANDS_NOTE = 'Resistencia según tu prueba: la turquesa es ligera y la rosa más firme. La caja no indica la carga en kg.';
+/* Zonas donde conviene cada banda (criterio práctico, no de un estudio). */
+TW.BAND_ZONES = {
+  banda_turquesa: 'Ligera: calentamiento, activación de glúteo medio, abducción de cadera y remo de técnica.',
+  banda_rosa: 'Más firme: puente de glúteo, remo con más tensión y patadas o sentadilla con banda.'
+};
 /* Calentamiento según el lugar (se muestra en Hoy). */
 TW.WARMUP = {
   casa: ['Caminar en el sitio o trote suave 3 min', 'Círculos de cadera y hombros, 10 c/u', 'Sentadilla sin peso, 2 × 10 lenta', 'Puente de glúteo sin peso, 2 × 12', 'Plancha corta, 20 s'],
@@ -109,6 +114,8 @@ TW.CATALOG = [
   E({ id: 'remo_invertido', name: 'Remo invertido', pattern: 'tiron', muscles: ['espalda', 'biceps'], equip: ['barra_dominadas'], diff: 1, goals: ['calistenia'], prog: 'ladder', ladder: 'remo_invertido', note: 'Cuerpo rígido, pecho hacia la barra, codos cerca del cuerpo.' }),
   E({ id: 'remo_banda', name: 'Remo con banda rosa', pattern: 'tiron', muscles: ['espalda', 'biceps'], equip: ['banda_rosa'], diff: 1, goals: ['definicion'], range: [10, 15], note: 'Retrae las escápulas al final del movimiento; no uses el tronco como impulso.' }),
   E({ id: 'remo_banda_turquesa', name: 'Remo con banda turquesa', pattern: 'tiron', muscles: ['espalda', 'biceps'], equip: ['banda_turquesa'], diff: 1, goals: ['definicion'], range: [10, 15], note: 'Retrae las escápulas al final del movimiento; no uses el tronco como impulso.' }),
+  E({ id: 'puente_banda_rosa', name: 'Puente de glúteo con banda rosa', pattern: 'bisagra', muscles: ['gluteos', 'isquiotibiales'], equip: ['banda_rosa'], diff: 1, goals: ['definicion'], range: [12, 15], rest: 60, note: 'Banda por encima de las rodillas o sobre la cadera; empuja con talones y aprieta glúteos arriba.' }),
+  E({ id: 'abduccion_banda_turquesa', name: 'Abducción de cadera con banda turquesa', pattern: 'aislamiento', muscles: ['gluteos'], equip: ['banda_turquesa'], diff: 1, goals: ['definicion'], range: [15, 20], rest: 45, note: 'Banda en los tobillos o rodillas; abre sin balancear el tronco y controla la vuelta.' }),
   E({ id: 'saltar_cuerda', name: 'Saltar cuerda', pattern: 'cardio', muscles: ['cardio', 'pantorrillas'], equip: ['cuerda_saltar'], diff: 1, goals: ['resistencia', 'definicion'], type: 'cardio', minutes: 10, note: 'Saltos bajos, codos cerca del cuerpo, aterriza suave sobre la punta de los pies.' }),
   E({ id: 'sentadilla_bulgara', name: 'Sentadilla búlgara', pattern: 'zancada', muscles: ['cuadriceps', 'gluteos'], equip: ['banco'], diff: 2, goals: ['calistenia', 'definicion'], prog: 'ladder', ladder: 'bulgara', note: 'Pie trasero apoyado en el banco. Rodilla delantera alineada con el pie.' }),
   E({ id: 'sentadilla', name: 'Sentadilla profunda', pattern: 'sentadilla', muscles: ['cuadriceps', 'gluteos'], diff: 1, goals: ['calistenia', 'definicion'], prog: 'ladder', ladder: 'sentadilla', note: 'Talones apoyados, rodillas en la línea de los pies, pecho erguido.' }),
