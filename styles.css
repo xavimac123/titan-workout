@@ -397,3 +397,17 @@ nav button,.tabs button{font-size:.78rem;letter-spacing:0;padding-left:2px;paddi
 .sleepwarn b{display:block}.sleepwarn small{display:block;color:var(--muted,#9aa);font-size:.78rem}
 .advh{display:flex;align-items:center;gap:10px;margin:6px 0 10px}.advh b{font-size:1.1rem}
 .wtab td,.wtab th{padding:6px 4px;text-align:center;font-size:.8rem}.wtab td svg{vertical-align:middle}
+
+/* ---- v28: día/noche y sesión libre ---- */
+.todl{display:flex;align-items:center;gap:6px;margin:0 0 8px;font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted,#9aa)}
+.tod{flex:none;vertical-align:middle}.freecard{background:linear-gradient(160deg,#17182a 0%,#14141d 70%);border-color:rgba(170,180,255,.2)}
+.freecard h3{display:flex;align-items:center;gap:8px;margin:0}.freecard .card-h{align-items:center;margin-bottom:8px}.freecard .wide{margin-top:6px}
+.fatcard .plain{padding-left:18px}.fatcard li{margin:6px 0;font-size:.88rem;color:var(--muted,#9aa)}.fatcard li b{color:var(--fg,#eee)}
+
+/* ---- v28: músculos con volumen ---- */
+.anim .bn{stroke:#3a3d49;stroke-width:2.2}.anim .bn.torso{stroke-width:3}.anim .bn.foot{stroke-width:2}.anim .bn.far{stroke:#2b2d36}.anim .bn.hl{stroke:#3a3d49}
+.anim .mus{stroke:rgba(0,0,0,.45);stroke-width:.5;stroke-linejoin:round}.anim .mus.far{opacity:.55}
+.anim .mus.hl{filter:drop-shadow(0 0 1.6px rgba(255,90,70,.75));animation:musglow 1.8s ease-in-out infinite}.anim .mus.hl2{filter:drop-shadow(0 0 1px rgba(255,160,70,.5))}
+.anim .fib{fill:none;stroke:rgba(255,220,200,.45);stroke-width:.45;stroke-linecap:round}
+.anim .hd{fill:#7d8294}.anim .lgd text{font:3.6px system-ui,sans-serif;fill:#9aa}
+@keyframes musglow{50%{filter:drop-shadow(0 0 3px rgba(255,110,80,.95))}}

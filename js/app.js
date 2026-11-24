@@ -363,7 +363,7 @@
   function fmtMin(m) { return m >= 60 ? Math.floor(m / 60) + ' h ' + (m % 60 ? (m % 60) + ' min' : '') : m + ' min'; }
   function monthMinutes() {
     var pre = today().slice(0, 7), set = {};
-    Object.keys(S.sess || {}).concat((S.logs || []).map(function (l) { return l.date; }), Object.keys(S.extraMin || {}), Object.keys(S.acts || {})).forEach(function (d) { if (d.indexOf(pre) === 0) set[d] = 1; });
+    Object.keys(S.sess || {}).concat((S.logs || []).map(function (l) { return l.date; }), Object.keys(S.extraMin || {}), Object.keys(S.acts || {}), Object.keys(S.free || {})).forEach(function (d) { if (d.indexOf(pre) === 0) set[d] = 1; });
     return Object.keys(set).reduce(function (a, d) { return a + dayMinutes(d); }, 0);
   }
   function dayMinutes(date) {
@@ -376,7 +376,7 @@
     });
     var act = sess ? Math.round((sess.e - sess.s) / 60000) : 0;
     var am = ((S.acts || {})[date] || []).reduce(function (a, x) { return a + (x.min || 0); }, 0);
-    return Math.min(180, Math.round(Math.max(act, est)) + ((S.extraMin || {})[date] || 0) + am);
+    return Math.min(240, Math.round(Math.max(act, est)) + ((S.extraMin || {})[date] || 0) + am + freeMin(date));
   }
   function isExtra(date, id) { return ((S.extras || {})[date] || []).indexOf(id) >= 0; }
   function planMin(i) {
@@ -411,12 +411,13 @@
     var str = Math.max(setMin, Math.min(sessMin - other, setMin * 2 + 10));
     k += TW.kcal(TW.MET_STRENGTH, kg, Math.max(0, str));
     k += TW.kcal(TW.MET_GENERIC, kg, (S.extraMin || {})[date] || 0);
+    k += freeKcal(date);
     return Math.round(k);
   }
   function rangeKcal(dates) { return dates.reduce(function (a, d) { return a + dayKcal(d); }, 0); }
   function monthKcal() {
     var pre = today().slice(0, 7), set = {};
-    Object.keys(S.sess || {}).concat((S.logs || []).map(function (l) { return l.date; }), Object.keys(S.extraMin || {}), Object.keys(S.acts || {})).forEach(function (d) { if (d.indexOf(pre) === 0) set[d] = 1; });
+    Object.keys(S.sess || {}).concat((S.logs || []).map(function (l) { return l.date; }), Object.keys(S.extraMin || {}), Object.keys(S.acts || {}), Object.keys(S.free || {})).forEach(function (d) { if (d.indexOf(pre) === 0) set[d] = 1; });
     return rangeKcal(Object.keys(set));
   }
   var ACT_KMH = { caminata: 5, trote: 8, correr: 10 };
@@ -693,7 +694,7 @@
     var todayM = dayMinutes(today()), ss = (S.sess || {})[today()];
     var hist = Object.keys(S.sess || {}).sort().reverse().slice(0, 7).map(function (d) {
       var x = S.sess[d];
-      return '<li><span>' + d.slice(5) + '</span><span>' + clock(x.s) + ' → ' + (x.fin ? clock(x.e) : 'en curso') + '</span><b>' + fmtMin(dayMinutes(d)) + ' · ~' + dayKcal(d) + ' kcal</b></li>';
+      return '<li><span>' + todIcon(x.s, 15) + ' ' + d.slice(5) + '</span><span>' + clock(x.s) + ' → ' + (x.fin ? clock(x.e) : 'en curso') + '</span><b>' + fmtMin(dayMinutes(d)) + ' · ~' + dayKcal(d) + ' kcal</b></li>';
     }).join('');
     return '<div class="stats3 tt"><div><small>Hoy</small><b>' + fmtMin(todayM) + '</b></div><div><small>Semana</small><b>' + fmtMin(total) + '</b></div><div><small>Mes</small><b>' + fmtMin(monthMinutes()) + '</b></div></div>' +
       '<p class="meta">Calorías estimadas: hoy <b>~' + dayKcal(today()) + '</b> · semana <b>~' + rangeKcal(weekDates(0)) + '</b> · mes <b>~' + monthKcal() + '</b> kcal</p>' +
@@ -732,7 +733,7 @@
       '<article class="card"><h3>Peso</h3><div class="stats3">' +
       '<div><small>Inicial</small><b>' + start + '</b></div><div><small>Actual</small><b>' + cur + '</b></div><div><small>Meta</small><b>' + (tgt || '—') + '</b></div></div>' +
       (tgt ? '<div class="pbar"><i style="width:' + pct + '%"></i></div><p class="meta">' + pct + '% del camino · ' + (cur > tgt ? 'faltan ' + (Math.round((cur - tgt) * 10) / 10) + ' kg' : 'meta alcanzada') + '</p>' : '<p class="meta">Define tu peso objetivo en Ajustes.</p>') + '</article>' +
-      bodyCardHTML() + sleepCardHTML() +
+      bodyCardHTML() + '<div class="row"><a class="ghost linkbtn" href="#progreso">Grasa localizada: qué sí funciona</a></div>' + sleepCardHTML() +
       '<article class="card"><details class="more"><summary>Más: tiempo de ejercicio, músculos y frase del día</summary><h3>Tiempo de ejercicio</h3>' + timeTilesHTML(days, total) + '<div class="wkgrid">' + cols + '</div>' +
       '<p class="meta"><b>' + total + ' min</b> esta semana' + (planTot ? ' · plan ' + planTot + (xTot ? ' · <b class="xt2">+' + xTot + ' min extra</b>' : '') : '') + (last ? ' · semana pasada ' + last + ' min (' + (diff >= 0 ? '+' : '') + diff + ')' : '') + '</p>' +
       '<p class="meta">Objetivo: ' + esc(TW.GOALS[p.goal] || '') + ' · ' + (p.days || 4) + ' días/semana · ' + (p.minutes || 20) + ' min por sesión</p>' +
@@ -773,6 +774,45 @@
     if (r.circ) out.push(r.circ.label === 'Alineado' ? 'Tus horarios son regulares: eso ayuda a fijar tu ritmo circadiano. En un estudio con 60 000 personas, la regularidad predijo mejor la mortalidad que la duración.' : 'Tus horarios varían: lo que más corrige el ritmo circadiano es acostarte y levantarte a la misma hora (±30 min), también en fin de semana, y recibir luz natural al despertar.');
     else out.push('Registra al menos 3 noches para medir la regularidad de tu ritmo circadiano.');
     return out.map(function (t) { return '<p class="meta">' + t + '</p>'; }).join('');
+  }
+
+
+  /* ---------- día y noche: rutina programada vs sesión libre opcional ---------- */
+  function sunSVG(sz) {
+    var rays = '', i;
+    for (i = 0; i < 8; i++) { var a = i * Math.PI / 4; rays += '<line x1="' + (14 + Math.cos(a) * 9).toFixed(1) + '" y1="' + (14 + Math.sin(a) * 9).toFixed(1) + '" x2="' + (14 + Math.cos(a) * 12.5).toFixed(1) + '" y2="' + (14 + Math.sin(a) * 12.5).toFixed(1) + '"/>'; }
+    return '<svg class="tod sun" width="' + sz + '" height="' + sz + '" viewBox="0 0 28 28" aria-hidden="true"><g stroke="#f1cf7a" stroke-width="2" stroke-linecap="round">' + rays + '</g><circle cx="14" cy="14" r="5.6" fill="#f1cf7a"/></svg>';
+  }
+  function moonSVG(sz) {
+    return '<svg class="tod moon" width="' + sz + '" height="' + sz + '" viewBox="0 0 28 28" aria-hidden="true"><path d="M20 19.5A9 9 0 0 1 10.5 5a9 9 0 1 0 9.5 14.5z" fill="#aab4ff"/>' +
+      '<circle cx="22" cy="6" r="1.2" fill="#dfe4ff"/><circle cx="25" cy="12" r=".9" fill="#dfe4ff"/><circle cx="18" cy="3.5" r=".8" fill="#dfe4ff"/></svg>';
+  }
+  function todIcon(ts, sz) { var h = new Date(ts).getHours(); return h >= 5 && h < 17 ? sunSVG(sz || 16) : moonSVG(sz || 16); }
+  function freeItems(date) { return (S.free || {})[date] || []; }
+  function itemMin(it) { return it.mode === 't' ? it.min : Math.round(it.sets * 1.5); }
+  function freeMin(date) { return freeItems(date).reduce(function (a, it) { return a + itemMin(it); }, 0); }
+  function freeKcal(date) { var kg = kgOn(date); return freeItems(date).reduce(function (a, it) { return a + TW.kcal(it.mode === 't' ? 5.0 : TW.MET_STRENGTH, kg, itemMin(it)); }, 0); }
+  var freeCtx = null;
+  function freeCardHTML(canLog) {
+    var date = weekDates(0)[selDay], list = freeItems(date), mins = freeMin(date);
+    return '<article class="card freecard"><div class="card-h"><h3>' + moonSVG(22) + ' Sesión libre <small class="es">tarde/noche</small></h3><span class="pill">Opcional</span></div>' +
+      (list.length ? '<ul class="hist">' + list.map(function (it, i) {
+        return '<li><span>' + esc(it.name) + '</span><span>' + (it.mode === 't' ? it.min + ' min' : it.sets + '×' + it.reps + (it.load ? ' · ' + it.load + ' kg' : '')) + '</span>' +
+          (canLog ? '<button class="xdel" data-a="freeDel" data-i="' + i + '" aria-label="Quitar">✕</button>' : '') + '</li>';
+      }).join('') + '</ul><p class="meta">Suma al día: <b>' + fmtMin(mins) + '</b> · ~' + Math.round(freeKcal(date)) + ' kcal</p>'
+        : '<p class="meta">Si entrenas por la tarde o noche, regístralo aquí. No es obligatorio, pero se suma al tiempo y las calorías del día.</p>') +
+      (canLog ? '<button class="ghost wide" data-a="freeOpen">+ Agregar ejercicio libre</button>' : '') + '</article>';
+  }
+  function renderFreeSheet() {
+    var c = freeCtx, names = TW.allEx(S).map(function (e) { return TW.exName(e); });
+    var st = function (f, l, v, d) { return '<p class="lbl">' + l + '</p><div class="stepper"><button data-a="freeStep" data-f="' + f + '" data-d="-' + d + '">−</button><output>' + v + '</output><button data-a="freeStep" data-f="' + f + '" data-d="' + d + '">+</button></div>'; };
+    openSheet('<h3>' + moonSVG(22) + ' Ejercicio libre</h3>' +
+      '<label class="field">¿Qué hiciste?<input id="freeName" list="freeList" autocomplete="off" placeholder="Ej. Sentadillas, abdominales, bici" value="' + esc(c.name) + '"></label>' +
+      '<datalist id="freeList">' + names.map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist>' +
+      '<div class="chips"><button class="chip' + (c.mode === 'f' ? ' on' : '') + '" data-a="freeMode" data-m="f">Series y repeticiones</button><button class="chip' + (c.mode === 't' ? ' on' : '') + '" data-a="freeMode" data-m="t">Solo tiempo</button></div>' +
+      (c.mode === 'f' ? st('sets', 'Series', c.sets, 1) + st('reps', 'Repeticiones', c.reps, 1) + st('load', 'Peso (kg, opcional)', c.load || '—', 2.5) : st('min', 'Tiempo (min)', c.min, 5)) +
+      '<p class="meta">Gasto estimado: <b>~' + Math.round(TW.kcal(c.mode === 't' ? 5.0 : TW.MET_STRENGTH, kgOn(today()), c.mode === 't' ? c.min : c.sets * 1.5)) + ' kcal</b>. Estimación con error de ±20–30 %.</p>' +
+      '<button class="wide" data-a="freeSave">Guardar</button>');
   }
 
   /* ---------- sueño: semana, caras y recomendaciones ---------- */
@@ -881,7 +921,7 @@
     }).join('');
     var ss = (S.sess || {})[today()], mins = info.exs.reduce(function (a, e) { return a + estMin(e); }, 0);
     var started = canLog && ss, sessTxt = started ? 'Inicio ' + clock(ss.s) + (ss.fin ? ' · fin ' + clock(ss.e) : ' · en curso') : '';
-    var amToday = ((S.acts || {})[today()] || []).reduce(function (a, x) { return a + x.min; }, 0);
+    var amToday = ((S.acts || {})[today()] || []).reduce(function (a, x) { return a + x.min; }, 0) + freeMin(today());
     var complete = info.exs.length && total > 0 && done >= total;
     var dkc = dayKcal(weekDates(0)[selDay]);
     var okCard = '<article class="card okcard"><svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true"><circle cx="32" cy="32" r="29" fill="none" stroke="var(--gold,#d4a84b)" stroke-width="4"/><path d="M19 33l9 9 17-20" fill="none" stroke="var(--gold,#d4a84b)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
@@ -889,15 +929,15 @@
       '<div class="grid2"><button class="ghost" data-a="recap">Ver resumen</button><button class="ghost" data-a="toggleList">' + (showList ? 'Ocultar rutina' : 'Editar rutina') + '</button></div></article>';
     var body = info.exs.length
       ? (complete ? okCard + (showList ? rowsHTML(info.exs, canLog) : '')
-        : '<article class="card sumcard"><div class="sumtop"><div><b>' + done + '/' + total + '</b> <span>series</span></div><div class="sumr">~' + mins + ' min' + (amToday ? ' + ' + amToday + ' extra' : '') + ' · ' + info.exs.length + ' ejercicios</div></div>' +
+        : '<article class="card sumcard"><p class="todl">' + sunSVG(18) + ' Rutina del día · programada</p><div class="sumtop"><div><b>' + done + '/' + total + '</b> <span>series</span></div><div class="sumr">~' + mins + ' min' + (amToday ? ' + ' + amToday + ' extra' : '') + ' · ' + info.exs.length + ' ejercicios</div></div>' +
         '<div class="pbar"><i style="width:' + pct + '%"></i></div>' +
         (sessTxt ? '<p class="meta">' + sessTxt + (dkc ? ' · ~' + dkc + ' kcal' : '') + '</p>' : '') +
         (canLog ? '<button class="wide" data-a="startRun">' + (done > 0 ? 'Continuar sesión' : 'Iniciar sesión') + '</button>' : '<p class="meta">Solo puedes registrar el día de hoy.</p>') + '</article>' +
         rowsHTML(info.exs, canLog)) +
-        actsCardHTML(canLog) +
+        actsCardHTML(canLog) + freeCardHTML(canLog) +
         '<details class="more"><summary>Calentamiento, extras y tiempo</summary>' + warmupBody() + extrasHTML(info) + (canLog ? timeCardHTML(canLog) : '') + '</details>' +
         (complete && !(ss && ss.fin) ? '' : '') + '<button class="wide ghost" data-a="finishDay" data-d="' + selDay + '"' + (canLog ? '' : ' disabled') + '>Terminar día</button>'
-      : restDayHTML() + actsCardHTML(canLog);
+      : restDayHTML() + actsCardHTML(canLog) + freeCardHTML(canLog);
     view.innerHTML = '<section class="page"><nav class="dows">' + dows + '</nav>' +
       '<h2 class="title">' + esc(info.name) + '</h2>' +
       '<p class="sub">' + (info.groups.map(function (g) { return TW.MUSCLES[g]; }).join(' · ') || 'Sin entrenamiento programado') + '</p>' +
@@ -1351,12 +1391,29 @@
       '<label class="field">% de grasa según foto o báscula (opcional)<input type="number" step="0.5" id="bodyBf"></label></div>' +
       '<button class="ghost" data-a="saveBody">Registrar medidas</button>' +
       '<p class="meta">Proteína objetivo: ' + Math.round(lw * pr[0]) + '–' + Math.round(lw * pr[1]) + ' g/día (' + pr[0] + '–' + pr[1] + ' g/kg)</p></div>' +
-      photosHTML() + sleepHTML() +
+      photosHTML() + fatTipsHTML(lw, pr) + sleepHTML() +
       '<div class="card"><h3>Cumplimiento (4 semanas)</h3>' + comp.map(function (c) {
         return '<div class="ms"><span>Semana ' + c.start.slice(5) + ': ' + c.done + '/' + c.planned + ' días</span><div class="pbar small"><i style="width:' + c.pct + '%"></i></div></div>';
       }).join('') + '</div>' +
       '<div class="card"><h3>Prueba de flexibilidad</h3><div class="grid2"><label class="field">Sit-and-reach (cm)<input type="number" step="0.5" id="testVal"></label></div>' +
       '<button class="ghost" data-a="saveTest">Guardar prueba</button></div></section>';
+  }
+
+  function fatTipsHTML(lw, pr) {
+    var last = (S.body || []).filter(function (b) { return b.waist > 0; }).slice(-1)[0];
+    var cint = last && last.waist >= 102 && !(S.profile && S.profile.sex === 'f') ? '<p class="note">Tu cintura de ' + last.waist + ' cm supera 102 cm: la cintura es el mejor indicador casero de grasa abdominal, así que mídela cada semana.</p>' : '';
+    return '<div class="card fatcard"><h3>Grasa localizada</h3>' +
+      '<p class="meta"><b>No se puede elegir de dónde se pierde.</b> Un metaanálisis de 37 comparaciones entrenando un solo lado del cuerpo no halló menos grasa en la zona entrenada (<a href="https://doi.org/10.5114/HM.2022.110373" target="_blank" rel="noopener">Ramírez-Campillo 2022</a>). Dónde baja primero depende de la genética, el sexo y la edad.</p>' + cint +
+      '<details class="more"><summary>Qué sí funciona para el abdomen y las zonas rebeldes</summary><ul class="plain">' +
+      '<li><b>Aeróbico regular</b>: el ejercicio aeróbico de intensidad moderada o alta redujo la grasa visceral en personas con sobrepeso (<a href="https://pubmed.ncbi.nlm.nih.gov/23409182/" target="_blank" rel="noopener">Vissers 2013</a>) y la cintura unos 3 cm (<a href="https://pubmed.ncbi.nlm.nih.gov/35383401/" target="_blank" rel="noopener">metaanálisis 2022</a>). Camina rápido o trota 3–5 veces por semana.</li>' +
+      '<li><b>Fuerza</b>: también ayudó a reducir grasa visceral en hombres con menos de 40 % de grasa corporal (<a href="https://pubmed.ncbi.nlm.nih.gov/38031812/" target="_blank" rel="noopener">red de metaanálisis 2023</a>). Además conserva el músculo mientras bajas de peso.</li>' +
+      '<li><b>Déficit moderado y constante</b>: 0,5–0,8 kg por semana. Más rápido suele costar músculo y se abandona antes.</li>' +
+      '<li><b>Proteína</b>: ' + Math.round(lw * pr[0]) + '–' + Math.round(lw * pr[1]) + ' g/día repartidos en las comidas, para sostener el músculo.</li>' +
+      '<li><b>Pasos diarios</b>: suma movimiento fuera del entrenamiento (caminar 7 000–10 000 pasos); es el gasto que más se pasa por alto.</li>' +
+      '<li><b>Sueño, estrés y alcohol</b>: dormir menos de 7 h frena la pérdida de grasa; el alcohol aporta calorías vacías y favorece comer de más.</li>' +
+      '<li><b>Mide bien</b>: cintura cada semana, a la misma hora y altura del ombligo, y fotos cada 2–4 semanas. La báscula sola no distingue grasa de músculo.</li>' +
+      '<li><b>Ejercicios por zona</b>: sirven para desarrollar el músculo de esa zona (se notará más cuando baje la grasa), no para quemar la grasa que la cubre.</li></ul>' +
+      '<p class="meta"><em>Orientación general, no es consejo médico. Si tienes enfermedades o tomas medicación, consulta antes de cambiar dieta o ejercicio.</em></p></details></div>'
   }
   function sleepHTML() {
     var st = TW.sleepStats(S.sleep || []);
@@ -1994,6 +2051,16 @@
       toast(TW.ACT_TYPES[actCtx.t] + ' guardada · ~' + Math.round(TW.kcal(TW.actMet(actCtx.t, actCtx.km, actCtx.min), kgOn(k), actCtx.min)) + ' kcal');
     },
     actDel: function (el, d) { var k = today(); (S.acts[k] || []).splice(Number(d.i), 1); if (!S.acts[k].length) delete S.acts[k]; save(); renderToday(); },
+    freeOpen: function () { freeCtx = { name: '', mode: 'f', sets: 3, reps: 12, load: 0, min: 15 }; renderFreeSheet(); },
+    freeMode: function (el, d) { freeCtx.mode = d.m; renderFreeSheet(); },
+    freeStep: function (el, d) { var f = d.f, v = Number(d.d), mn = f === 'min' ? 5 : f === 'load' ? 0 : 1; freeCtx[f] = Math.max(mn, Math.round(((freeCtx[f] || 0) + v) * 10) / 10); renderFreeSheet(); },
+    freeSave: function () {
+      var c = freeCtx, k = today(), nm = (c.name || '').trim();
+      if (!nm) { toast('Escribe qué ejercicio hiciste'); return; }
+      S.free = S.free || {}; (S.free[k] = S.free[k] || []).push({ name: nm, mode: c.mode, sets: c.sets, reps: c.reps, load: c.load || null, min: c.min, ts: Date.now() });
+      save(); closeSheet(); renderToday(); toast('Sesión libre guardada · ' + fmtMin(freeMin(k)) + ' en total');
+    },
+    freeDel: function (el, d) { var k = today(); (S.free[k] || []).splice(Number(d.i), 1); if (!S.free[k].length) delete S.free[k]; save(); renderToday(); },
     weekDetail: function () { openSheet(weekDetailHTML()); },
     sleepAdvice: function () { openSheet(adviceHTML()); },
     recap: function () { openSheet(recapHTML(TW.dayInfo(S, S.week[selDay]))); },
@@ -2047,6 +2114,7 @@
     var fn = ACT[el.dataset.a];
     if (fn) fn.call(el, el, el.dataset);
   });
+  document.addEventListener('input', function (e) { if (e.target && e.target.id === 'freeName' && freeCtx) freeCtx.name = e.target.value; });
   document.addEventListener('change', function (e) {
     var t = e.target;
     if (t.id === 'exPhoto') addExPhoto(t.files[0], t.dataset.ex);

@@ -42,7 +42,7 @@
     var bones = [];
     if (far) { bones.push([pts.hip, pts.kn2, 'thigh', 1], [pts.kn2, pts.an2, 'shin', 1], [pts.an2, pts.toe2, 'foot', 1]); }
     bones.push([pts.hip, pts.kn, 'thigh'], [pts.kn, pts.an, 'shin'], [pts.an, pts.toe, 'foot'], [pts.hip, pts.sho, 'torso'], [pts.sho, pts.el, 'uarm'], [pts.el, pts.wr, 'farm']);
-    return { bones: bones, head: pts.head, hands: [pts.wr], an: pts.an, an2: pts.an2, sho: pts.sho, hip: pts.hip };
+    return { bones: bones, head: pts.head, hands: [pts.wr], an: pts.an, an2: pts.an2, sho: pts.sho, hip: pts.hip, delts: [pts.sho], glutes: [pts.hip] };
   }
   /* Esqueleto frontal (para elevaciones laterales, encogimientos, aperturas). o: sy, hy, ar/fr (ángulos) o wrR (destino mano derecha). */
   function front(o) {
@@ -59,7 +59,7 @@
       }
       bones.push([sh, el, 'uarm'], [el, wr, 'farm']); hands.push(wr);
     });
-    return { bones: bones, head: [cx, sy - 9], hands: hands, an: [cx + 5, 71] };
+    return { bones: bones, head: [cx, sy - 9], hands: hands, an: [cx + 5, 71], delts: [shL, shR], glutes: [], fr: true };
   }
 
   /* Cuerpo apoyado (flexiones/planchas): el cuerpo es una recta desde el pivote (puntas o rodillas) hasta el hombro;
@@ -273,10 +273,41 @@
 
   /* Qué segmentos se resaltan según el músculo principal. */
   var HL = {
-    pecho: ['torso', 'uarm'], espalda: ['torso', 'uarm'], hombros: ['uarm'], biceps: ['uarm', 'farm'], triceps: ['uarm', 'farm'],
-    cuadriceps: ['thigh'], isquiotibiales: ['thigh'], gluteos: ['thigh', 'torso'], abdomen: ['torso'], pantorrillas: ['shin', 'foot'],
+    pecho: ['torsoU'], espalda: ['torsoU', 'uarm'], hombros: ['delt', 'uarm'], biceps: ['uarm', 'farm'], triceps: ['uarm', 'farm'],
+    cuadriceps: ['thigh'], isquiotibiales: ['thigh'], gluteos: ['glute', 'thigh'], abdomen: ['torsoL'], pantorrillas: ['shin', 'foot'],
     cuerpo_completo: [], cardio: [], movilidad: []
   };
+  /* Semianchos [inicio, centro (vientre muscular), fin] de cada segmento; en vista frontal el tronco es más ancho. */
+  var WID = {
+    thigh: [5.4, 6.6, 3.6], shin: [3.6, 4.2, 2.0], foot: [1.9, 1.9, 1.3], uarm: [3.5, 3.9, 2.6], farm: [2.7, 3.0, 1.7],
+    torsoU: [6.3, 6.8, 5.6], torsoL: [5.6, 5.1, 5.9]
+  };
+  var WIDF = { thigh: [4.6, 5.0, 3.4], shin: [3.4, 3.8, 2.2], torsoU: [9.4, 8.6, 7.4], torsoL: [7.2, 6.6, 6.6] };
+  /* Cuerpo del segmento como vientre muscular (curva) alrededor del hueso; k = bulto por contracción. */
+  function belly(p, q, type, fr, k) {
+    var w = (fr && WIDF[type]) || WID[type];
+    if (!w) return null;
+    var dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l;
+    var m = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2], w0 = w[0], w1 = w[2], wm = w[1] * k;
+    var f = function (pt, n, ww) { return [pt[0] + nx * ww * n, pt[1] + ny * ww * n]; };
+    var a0 = f(p, 1, w0), a1 = f(q, 1, w1), b1 = f(q, -1, w1), b0 = f(p, -1, w0), am = f(m, 1, wm * 1.9 - (w0 + w1) / 2), bm = f(m, -1, wm * 1.9 - (w0 + w1) / 2);
+    var r = rnd;
+    return 'M' + r(a0[0]) + ' ' + r(a0[1]) + 'Q' + r(am[0]) + ' ' + r(am[1]) + ' ' + r(a1[0]) + ' ' + r(a1[1]) + 'L' + r(b1[0]) + ' ' + r(b1[1]) + 'Q' + r(bm[0]) + ' ' + r(bm[1]) + ' ' + r(b0[0]) + ' ' + r(b0[1]) + 'Z';
+  }
+  /* Fibras: tres líneas que siguen la dirección del músculo, dentro del vientre. */
+  function fibers(p, q, type, fr, k) {
+    var w = (fr && WIDF[type]) || WID[type];
+    if (!w) return null;
+    var dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l, d = '', r = rnd;
+    [-0.5, 0, 0.5].forEach(function (o) {
+      var s0 = [p[0] + dx * 0.12 + nx * w[0] * o * 0.8, p[1] + dy * 0.12 + ny * w[0] * o * 0.8], s1 = [q[0] - dx * 0.12 + nx * w[2] * o * 0.8, q[1] - dy * 0.12 + ny * w[2] * o * 0.8];
+      var mm = [(s0[0] + s1[0]) / 2 + nx * w[1] * k * o * 1.3, (s0[1] + s1[1]) / 2 + ny * w[1] * k * o * 1.3];
+      d += 'M' + r(s0[0]) + ' ' + r(s0[1]) + 'Q' + r(mm[0]) + ' ' + r(mm[1]) + ' ' + r(s1[0]) + ' ' + r(s1[1]);
+    });
+    return d;
+  }
+  function ell(c, rx, ry, k) { var r = rnd; return 'M' + r(c[0] - rx * k) + ' ' + r(c[1]) + 'a' + r(rx * k) + ' ' + r(ry * k) + ' 0 1 0 ' + r(2 * rx * k) + ' 0a' + r(rx * k) + ' ' + r(ry * k) + ' 0 1 0 ' + r(-2 * rx * k) + ' 0Z'; }
+  var GID = 0;
 
   function rnd(n) { return Math.round(n * 10) / 10; }
   function frameOf(m, v, u) {
@@ -292,7 +323,7 @@
       var sh = [cx + s * sw, sy], w = [cx + s * (o.wr[0] - cx), o.wr[1]], r = ik(sh, w, LEN.ua, LEN.fa, [s * 0.6, -1]);
       bones.push([sh, r[0], 'uarm'], [r[0], r[1], 'farm']); hands.push(r[1]);
     });
-    return { bones: bones, head: [cx, 58], hands: hands, an: [cx, 70] };
+    return { bones: bones, head: [cx, 58], hands: hands, an: [cx, 70], delts: [[cx - sw, sy], [cx + sw, sy]], glutes: [], fr: true };
   }
   /* Construye el SVG animado. e: ejercicio; opts.motion: [clave, variante]. */
   TW.animSVG = function (e, opts) {
@@ -314,11 +345,45 @@
     var anim = function (attr, fn) { return '<animate attributeName="' + attr + '" values="' + vals(fn) + '" dur="' + dur + '" repeatCount="indefinite"/>'; };
     out += (SC[m.sc] || SC.floor)(v) + '';
     if (m.sc === 'bar') out = out;
+    var gid = 'mg' + (++GID), sec = (e.muscles || []).slice(1, 3).reduce(function (acc, mm) { return acc.concat(HL[mm] || []); }, []);
+    var us = [0, 0, 0].concat(frames.slice(0, N + 1).map(function (_, j) { return j / N; }), [1, 1, 1], frames.slice(N + 1).map(function (_, j) { return (N - 1 - j) / N; }));
+    var kOf = function (j, on) { return on ? 1 + 0.26 * Math.sin(Math.PI * us[j]) : 1; };
+    out = '<defs><linearGradient id="' + gid + 'r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff7b61"/><stop offset=".55" stop-color="#e0362b"/><stop offset="1" stop-color="#8f1712"/></linearGradient>' +
+      '<linearGradient id="' + gid + 'o" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb05a"/><stop offset="1" stop-color="#c76a1a"/></linearGradient>' +
+      '<linearGradient id="' + gid + 'b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6a6f80"/><stop offset="1" stop-color="#3a3d49"/></linearGradient></defs>' + out;
     f0.bones.forEach(function (b, k) {
-      var cls = 'bn ' + b[2] + (b[3] ? ' far' : '') + (!b[3] && hl.indexOf(b[2]) >= 0 ? ' hl' : '');
-      out += '<line class="' + cls + '" x1="' + rnd(b[0][0]) + '" y1="' + rnd(b[0][1]) + '" x2="' + rnd(b[1][0]) + '" y2="' + rnd(b[1][1]) + '">' +
+      out += '<line class="bn ' + b[2] + (b[3] ? ' far' : '') + '" x1="' + rnd(b[0][0]) + '" y1="' + rnd(b[0][1]) + '" x2="' + rnd(b[1][0]) + '" y2="' + rnd(b[1][1]) + '">' +
         anim('x1', function (f) { return f.bones[k][0][0]; }) + anim('y1', function (f) { return f.bones[k][0][1]; }) +
         anim('x2', function (f) { return f.bones[k][1][0]; }) + anim('y2', function (f) { return f.bones[k][1][1]; }) + '</line>';
+    });
+    var shapes = [];
+    f0.bones.forEach(function (b, k) {
+      var tp = b[2];
+      if (tp === 'torso') {
+        var vert = Math.abs(b[1][0] - b[0][0]) < 0.6 * Math.abs(b[1][1] - b[0][1]) + 0.01 || !f0.fr;
+        if (!vert) return;
+        shapes.push({ k: k, type: 'torsoU', t0: 1, t1: 0.5 }, { k: k, type: 'torsoL', t0: 0.5, t1: 0 });
+      } else shapes.push({ k: k, type: tp, t0: 0, t1: 1, far: b[3] });
+    });
+    var seg = function (f, s) { var b = f.bones[s.k], P = b[0], Q = b[1]; return [lp(P, Q, s.t0), lp(P, Q, s.t1)]; };
+    shapes.forEach(function (s) {
+      var on = !s.far && hl.indexOf(s.type) >= 0, on2 = !s.far && !on && sec.indexOf(s.type) >= 0, st = on ? 'r' : on2 ? 'o' : 'b';
+      var dpath = function (j) { var q = seg(seq[j], s); return belly(q[0], q[1], s.type, f0.fr, kOf(j, on)); };
+      if (!dpath(0)) return;
+      out += '<path class="mus ' + (on ? 'hl' : on2 ? 'hl2' : s.far ? 'far' : '') + '" fill="url(#' + gid + st + ')" d="' + dpath(0) + '">' +
+        '<animate attributeName="d" values="' + seq.map(function (_, j) { return dpath(j); }).join(';') + '" dur="' + dur + '" repeatCount="indefinite"/></path>';
+      if (on || on2) {
+        var fp = function (j) { var q = seg(seq[j], s); return fibers(q[0], q[1], s.type, f0.fr, kOf(j, on)); };
+        out += '<path class="fib" d="' + fp(0) + '"><animate attributeName="d" values="' + seq.map(function (_, j) { return fp(j); }).join(';') + '" dur="' + dur + '" repeatCount="indefinite"/></path>';
+      }
+    });
+    [['delts', 'delt', 5.0, 5.2], ['glutes', 'glute', 5.6, 5.0]].forEach(function (pp) {
+      (f0[pp[0]] || []).forEach(function (c0, idx) {
+        var on = hl.indexOf(pp[1]) >= 0, on2 = !on && sec.indexOf(pp[1]) >= 0;
+        if (pp[1] === 'glute' && !on && !on2) return;
+        var dp = function (j) { return ell(seq[j][pp[0]][idx], pp[2] * 0.62, pp[3] * 0.62, kOf(j, on)); };
+        out += '<path class="mus ' + (on ? 'hl' : on2 ? 'hl2' : '') + '" fill="url(#' + gid + (on ? 'r' : on2 ? 'o' : 'b') + ')" d="' + dp(0) + '"><animate attributeName="d" values="' + seq.map(function (_, j) { return dp(j); }).join(';') + '" dur="' + dur + '" repeatCount="indefinite"/></path>';
+      });
     });
     out += '<circle class="hd" r="5" cx="' + rnd(f0.head[0]) + '" cy="' + rnd(f0.head[1]) + '">' + anim('cx', function (f) { return f.head[0]; }) + anim('cy', function (f) { return f.head[1]; }) + '</circle>';
     var hands = f0.hands.length;
@@ -337,6 +402,7 @@
           anim('cx', function (f) { return f.hands[k][0]; }) + anim('cy', function (f) { return f.hands[k][1] + (prop === 'kb' ? 3 : 0); }) + '</circle>';
       });
     }
+    out += '<g class="lgd"><circle cx="5" cy="-11" r="1.8" fill="#e0362b"/><text x="9" y="-9.6">principal</text><circle cx="35" cy="-11" r="1.8" fill="#e08a2b"/><text x="39" y="-9.6">apoyo</text></g>';
     return '<svg class="anim" viewBox="0 -16 120 94" role="img" aria-label="Animación de la técnica: ' + esc(e.name) + '">' + out + '</svg>';
   };
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
