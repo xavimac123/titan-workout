@@ -420,3 +420,15 @@ nav button,.tabs button{font-size:.78rem;letter-spacing:0;padding-left:2px;paddi
 .chosen{display:flex;justify-content:space-between;align-items:center;margin:4px 0 10px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.06)}.chosen .lnk{color:var(--gold,#d4a84b);background:none;border:0}
 .xbtns{grid-template-columns:1fr 1fr;margin-top:8px}.note.late{border-left:3px solid #f0b94a}
 .tips li{margin:6px 0;font-size:.85rem;color:var(--muted,#9aa)}.tips li b{color:var(--fg,#eee)}
+
+/* ---- v30: sesión adicional con reloj, selector ilustrado ---- */
+.xrun{display:flex;flex-direction:column;gap:8px;align-items:stretch;margin:6px 0 10px;padding:12px;border-radius:12px;background:rgba(170,180,255,.08)}
+.xrun b{display:block;font-family:var(--cond);font-size:2.4rem;color:#cdd3ff;font-variant-numeric:tabular-nums}
+.xgo{background:linear-gradient(135deg,#5a63d8,#3b3fa0) !important;color:#fff !important}
+.ztiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0 12px}
+.ztile{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:inherit}
+.ztile svg.body{width:100%;height:64px}.ztile span{font-size:.78rem;font-weight:600}
+.zhead{display:flex;align-items:center;gap:10px}.zhead h3{margin:0}.zhead .lnk{color:var(--gold,#d4a84b);background:none;border:0}
+.zrow svg.body{width:44px;height:40px;flex:none}.zrow{gap:10px !important}.zrow span{flex:1}
+.runanim.sm{max-width:230px;margin:4px auto 8px}
+.xtick{display:none}
