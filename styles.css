@@ -411,3 +411,12 @@ nav button,.tabs button{font-size:.78rem;letter-spacing:0;padding-left:2px;paddi
 .anim .fib{fill:none;stroke:rgba(255,220,200,.45);stroke-width:.45;stroke-linecap:round}
 .anim .hd{fill:#7d8294}.anim .lgd text{font:3.6px system-ui,sans-serif;fill:#9aa}
 @keyframes musglow{50%{filter:drop-shadow(0 0 3px rgba(255,110,80,.95))}}
+
+/* ---- v29: adicional unificado y selector por zonas ---- */
+.zones{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px}.zones .chip{padding:6px 10px;font-size:.8rem}
+.zlist{max-height:42vh;overflow:auto;margin:0 -4px 10px;border-top:1px solid rgba(255,255,255,.07)}
+.zrow{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid rgba(255,255,255,.07);color:inherit;padding:10px 4px}
+.zrow span{display:flex;flex-direction:column;min-width:0}.zrow small{color:var(--muted,#9aa);font-size:.72rem}.zrow em{font-style:normal;font-size:.7rem;color:var(--muted,#9aa);white-space:nowrap}
+.chosen{display:flex;justify-content:space-between;align-items:center;margin:4px 0 10px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.06)}.chosen .lnk{color:var(--gold,#d4a84b);background:none;border:0}
+.xbtns{grid-template-columns:1fr 1fr;margin-top:8px}.note.late{border-left:3px solid #f0b94a}
+.tips li{margin:6px 0;font-size:.85rem;color:var(--muted,#9aa)}.tips li b{color:var(--fg,#eee)}
