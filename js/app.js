@@ -2015,7 +2015,8 @@
     cuerda_saltar: /cuerda|rope|jump/,
     bicicleta: /bicicleta|\bbici\b|\bbike\b|cycle/,
     kettlebell: /kettlebell|pesa rusa|\bkb\b/,
-    banco: /\bbanco\b|\bbench\b/
+    banco: /\bbanco\b|\bbench\b/,
+    mochila: /mochila|backpack/
   };
   function equipScanHTML() {
     return '<div class="scan"><label class="field">Foto del equipo (opcional)<input type="file" id="equipPhoto" accept="image/*" capture="environment"></label>' +
