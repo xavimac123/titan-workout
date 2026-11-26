@@ -72,11 +72,11 @@
   }
   /* Los músculos de arriba y abajo escalan según el sexo para ajustar a la silueta. */
   var UPPER = { hombros: 1, pecho: 1, biceps: 1, triceps: 1, abdomen: 1, espalda: 1 };
-  function layer(set, lit, b, neutral, pick) {
+  function layer(set, lit, b, neutral, pick, act) {
     var up = '', lo = '';
     Object.keys(set).forEach(function (k) {
       var v = lit(k), g = mirror(set[k], v ? 'hi' : 'lo', typeof v === 'number' ? 0.3 + 0.7 * v : 1);
-      if (pick) g = '<g class="mz' + (pick === k ? ' sel' : '') + '" data-a="pickG" data-g="' + k + '" role="button" aria-label="' + TW.MUSCLES[k] + '">' + g + '</g>';
+      if (pick) g = '<g class="mz' + (pick === k ? ' sel' : '') + '" data-a="' + (act || 'pickG') + '" data-g="' + k + '" role="button" aria-label="' + TW.MUSCLES[k] + '">' + g + '</g>';
       if (UPPER[k]) up += g; else lo += g;
     });
     var nu = '', nl = '';
@@ -89,13 +89,13 @@
     return '<g transform="' + tL + '">' + lo + nl + '</g><g transform="' + tU + '">' + nu + up + '</g>';
   }
 
-  TW.bodySVG = function (muscles, size, sex, heat, pick) {
+  TW.bodySVG = function (muscles, size, sex, heat, pick, act) {
     var b = BODY[sex === 'f' ? 'f' : 'm'], all = muscles.indexOf('cuerpo_completo') >= 0;
     var lit = heat ? function (k) { return heat[k] > 0 ? heat[k] : false; } : function (k) { return all || muscles.indexOf(k) >= 0; };
     muscles = muscles || [];
     var label = muscles.length ? muscles.map(function (m) { return TW.MUSCLES[m]; }).join(', ') : 'Sin grupo';
     var big = size === 'big';
-    var fig = function (set, neutral, det, cl) { return '<g>' + silhouette(b) + layer(set, lit, b, neutral, pick) + details(det, b, cl) + '</g>'; };
+    var fig = function (set, neutral, det, cl) { return '<g>' + silhouette(b) + layer(set, lit, b, neutral, pick, act) + details(det, b, cl) + '</g>'; };
     var hb = b.bust ? '<ellipse class="bust" cx="41" cy="52" rx="7" ry="6"/><ellipse class="bust" cx="59" cy="52" rx="7" ry="6"/>' : '';
     var defs = '<defs><linearGradient id="tw-hi" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFB04D"/><stop offset="1" stop-color="#F0600C"/></linearGradient>' +
       '<linearGradient id="tw-lo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4A4A55"/><stop offset="1" stop-color="#2E2E36"/></linearGradient>' +

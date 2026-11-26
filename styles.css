@@ -432,3 +432,19 @@ nav button,.tabs button{font-size:.78rem;letter-spacing:0;padding-left:2px;paddi
 .zrow svg.body{width:44px;height:40px;flex:none}.zrow{gap:10px !important}.zrow span{flex:1}
 .runanim.sm{max-width:230px;margin:4px auto 8px}
 .xtick{display:none}
+
+/* ---- v32: menú con iconos, mapa muscular en Biblioteca ---- */
+.tabs a svg{width:26px;height:26px}
+.tabs a{min-height:58px}
+.libmap .runfig{max-width:340px;margin:0 auto}
+.libpanel .zrow.nogear{opacity:.55}
+.zrow small{display:block;color:var(--mut);font-size:.72rem}
+.rectypes{display:grid;gap:6px;margin:6px 0 10px}
+.rt{border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03)}
+.rt summary{list-style:none;cursor:pointer;padding:10px 12px;display:flex;gap:10px;align-items:center;font-weight:600}
+.rt summary::-webkit-details-marker{display:none}.rt summary span{font-size:1.1rem}
+.rt p{margin:0;padding:0 12px 12px;color:var(--mut);font-size:.88rem}
+.more{margin:8px 0}.more summary{cursor:pointer;color:var(--gold,#d4a84b);padding:6px 0}
+.body .dl{pointer-events:none}
+.libpanel .zlist{max-height:none;overflow:visible}
+.libpanel .zrow b{color:#f2f2f5}

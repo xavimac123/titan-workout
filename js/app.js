@@ -1596,6 +1596,52 @@
   }
 
   /* ---------- BIBLIOTECA ---------- */
+
+  /* ---------- Biblioteca: mapa muscular, ejercicios por área y recuperación ---------- */
+  var MUS_INFO = {
+    pecho: { fn: 'Empuja y junta los brazos al frente: press, flexiones y aperturas.', rest: '48–72 h' },
+    espalda: { fn: 'Jala los brazos hacia ti y sostiene la columna: remos, jalones y dominadas.', rest: '48–72 h', note: 'La zona lumbar tarda más si haces peso muerto o remos pesados.' },
+    hombros: { fn: 'Eleva y gira el brazo. También trabaja en casi todo empuje y tirón.', rest: '48 h', note: 'Recibe trabajo indirecto del pecho y la espalda: no hace falta saturarlo.' },
+    biceps: { fn: 'Flexiona el codo y gira el antebrazo. Ayuda en todo tirón.', rest: '48 h', note: 'Músculo pequeño: tolera más frecuencia, pero también se fatiga con los remos y las dominadas.' },
+    triceps: { fn: 'Estira el codo. Es el principal músculo del brazo en todo empuje.', rest: '48 h', note: 'Ya trabaja en cada press y flexión: cuenta ese volumen antes de sumar más.' },
+    cuadriceps: { fn: 'Estira la rodilla y sostiene la bajada: sentadillas, zancadas y subir escaleras.', rest: '48–72 h' },
+    isquiotibiales: { fn: 'Flexiona la rodilla y extiende la cadera: puentes y peso muerto rumano.', rest: '48–72 h', note: 'Si sientes tirón al inicio de una sesión, baja la carga o cambia a movilidad.' },
+    gluteos: { fn: 'Extienden y estabilizan la cadera: puentes, sentadillas y subidas.', rest: '48–72 h' },
+    abdomen: { fn: 'Estabiliza el tronco y evita que la espalda se arquee.', rest: '24–48 h', note: 'Tolera más frecuencia que otros músculos, pero no es "grasa localizada": el abdomen no pierde grasa por entrenarlo más.' },
+    pantorrillas: { fn: 'Elevan el talón al caminar, correr y saltar.', rest: '24–48 h', note: 'Si caminas o trotas mucho, ya reciben trabajo.' }
+  };
+  var REC_TYPES = [
+    { ic: '⏱', t: 'Entre series', d: '60–90 s en aislados y 2–3 min en ejercicios grandes (press, remo, sentadilla). Con el cronómetro de la app.' },
+    { ic: '🛌', t: 'Entre sesiones', d: 'Orientativo: 48–72 h antes de volver a cargar el mismo músculo con esfuerzo alto. Los pequeños toleran menos.' },
+    { ic: '🚶', t: 'Recuperación activa', d: 'Caminata suave 20–30 min, movilidad o bicicleta ligera en el día libre. Mueve sangre sin sumar fatiga.' },
+    { ic: '🌙', t: 'Sueño', d: '7–9 h. Dormir poco baja el rendimiento y la recuperación: si la noche fue mala, haz sesión ligera.' },
+    { ic: '🥩', t: 'Alimentación', d: 'Proteína repartida en el día (tu rango está en Ajustes) y suficiente agua. Con déficit calórico la recuperación es más lenta.' },
+    { ic: '📉', t: 'Semana de descarga', d: 'Cada 4–8 semanas, o cuando el rendimiento baja varias sesiones, reduce series o carga a la mitad durante una semana.' }
+  ];
+  function libMapHTML() {
+    var sex = (S.profile && S.profile.sex) || 'm', sel = libFilter.mus && MUS_INFO[libFilter.mus] ? libFilter.mus : '';
+    return '<article class="card libmap"><p class="lbl">Toca un músculo</p><div class="runfig">' + TW.bodySVG(sel ? [sel] : [], 'big', sex, null, sel || true, 'libMuscle') + '</div>' +
+      (sel ? '' : '<p class="meta">Verás qué ejercicios lo trabajan, con o sin gimnasio, y cuánto descansarlo.</p>') + '</article>' + (sel ? libMusPanel(sel) : '');
+  }
+  function libMusPanel(m) {
+    var info = MUS_INFO[m], all = TW.allEx(S).filter(function (e) { return e.type !== 'flex' && e.muscles.indexOf(m) >= 0 && TW.status(S, e.id) !== 'descartado'; });
+    var main = all.filter(function (e) { return e.muscles[0] === m; }), sec = all.filter(function (e) { return e.muscles[0] !== m; });
+    var isGym = function (e) { return (e.equip || []).indexOf('gimnasio') >= 0; };
+    var row = function (e) {
+      var ok = TW.hasEquip(S, e);
+      return '<button class="zrow' + (ok ? '' : ' nogear') + '" data-a="detail" data-ex="' + e.id + '">' + bsvg(e.muscles.slice(0, 3), 'mini') + '<span><b>' + esc(TW.exName(e)) + '</b><small>' + e.sets + '×' + e.range[0] + '–' + e.range[1] + '</small></span><em>' + (e.equip && e.equip.length ? esc(String(TW.EQUIPMENT[e.equip[0]] || e.equip[0]).split(' (')[0]) : 'sin equipo') + '</em></button>';
+    };
+    var grp = function (t, list) { return list.length ? '<p class="lbl">' + t + ' · ' + list.length + '</p><div class="zlist">' + list.map(row).join('') + '</div>' : ''; };
+    var home = main.filter(function (e) { return !isGym(e); }), gym = main.filter(isGym);
+    return '<article class="card libpanel"><div class="card-h"><h3>' + TW.MUSCLES[m] + '</h3><span class="pill">Descanso ' + info.rest + '</span></div><p class="how">' + info.fn + '</p>' +
+      grp('En casa', home) + grp('En gimnasio', gym) +
+      (sec.length ? '<details class="more"><summary>También lo trabajan (' + sec.length + ')</summary><div class="zlist">' + sec.map(row).join('') + '</div></details>' : '') +
+      '<p class="lbl">Cómo recuperarlo</p><div class="rectypes">' +
+      REC_TYPES.map(function (r) { return '<details class="rt"><summary><span>' + r.ic + '</span>' + r.t + '</summary><p>' + r.d + '</p></details>'; }).join('') + '</div>' +
+      (info.note ? '<p class="meta">' + info.note + '</p>' : '') +
+      '<p class="meta">Los tiempos son orientativos: dependen de tu sueño, carga y alimentación. Dolor que dura más de 72 h o que sube cada sesión es señal de bajar la carga.</p>' +
+      '<button class="ghost wide" data-a="libMuscle" data-g="' + m + '">Quitar selección</button></article>';
+  }
   function renderLibrary() {
     var all = TW.allEx(S);
     var shown = all.filter(function (e) {
@@ -1614,8 +1660,8 @@
       return '<option value="' + g + '"' + (libFilter.goal === g ? ' selected' : '') + '>' + TW.GOALS[g] + '</option>';
     }).join('');
     view.innerHTML = '<section class="page"><div class="card-h"><h2 class="title">Biblioteca</h2>' +
-      '<button class="ghost" data-a="customNew">+ Propio</button></div>' +
-      '<div class="grid2"><select data-f="mus" aria-label="Grupo muscular"><option value="">Todos los grupos musculares</option>' + Object.keys(TW.MUSCLES).map(function (m) { return '<option value="' + m + '"' + (libFilter.mus === m ? ' selected' : '') + '>' + TW.MUSCLES[m] + '</option>'; }).join('') + '</select></div>' +
+      '<button class="ghost" data-a="customNew">+ Propio</button></div>' + libMapHTML() +
+      '<h3 class="sec">Administrar ejercicios</h3><div class="grid2"><select data-f="mus" aria-label="Grupo muscular"><option value="">Todos los grupos musculares</option>' + Object.keys(TW.MUSCLES).map(function (m) { return '<option value="' + m + '"' + (libFilter.mus === m ? ' selected' : '') + '>' + TW.MUSCLES[m] + '</option>'; }).join('') + '</select></div>' +
       '<div class="grid2"><select data-f="pat" aria-label="Patrón"><option value="">Todos los patrones</option>' + pats + '</select>' +
       '<select data-f="goal" aria-label="Objetivo"><option value="">Todos los objetivos</option>' + goals + '</select></div>' +
       '<p class="meta">Solo ves ejercicios que puedes hacer con tu equipo.</p>' +
@@ -2164,6 +2210,7 @@
     wkSel: function (el, d) { selectWeekDay(Number(d.d)); },
     goDay: function (el, d) { selDay = Number(d.d); run = null; location.hash = '#hoy'; },
     rmEx: function (el, d) { var day = S.week[wkSel]; day.exs = day.exs.filter(function (x) { return x !== d.ex; }); var dt = weekDates(0)[wkSel]; if (S.extras && S.extras[dt]) S.extras[dt] = S.extras[dt].filter(function (x) { return x !== d.ex; }); save(); renderWeek(); toast('Ejercicio quitado'); },
+    libMuscle: function (el, d) { libFilter.mus = libFilter.mus === d.g ? '' : d.g; renderLibrary(); var p = $('.libpanel'); window.scrollTo({ top: p ? p.offsetTop - 70 : 0, behavior: 'smooth' }); },
     pickG: function (el, d) { pick.g = d.g; pick.p = 'all'; openPicker(); },
     pickP: function (el, d) { pick.p = d.p; openPicker(); },
     addPick: function (el, d) { var pdv = pd(); S.week[pdv].exs.push(d.ex); markExtra(d.ex); activate(d.ex); save(); closeSheet(); var m = TW.estMin(TW.getEx(S, d.ex)); if ((location.hash || '').indexOf('semana') >= 0) { wkSel = pdv; renderWeek(); } else renderToday(); toast('Añadido a ' + TW.DOW[pdv] + ' · +' + m + ' min'); },
